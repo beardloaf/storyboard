@@ -292,8 +292,13 @@
   .wave-controls .btn.tiny { padding: 3px 6px; font-size: 10px; }
 
   .col textarea {
-    height: 56px; min-height: 56px; flex: none;
+    min-height: 92px; flex: none;
     padding: 8px 10px; font-size: 13px;
+    line-height: 1.45;
+  }
+  #musicPrompt {
+    min-height: 168px;
+    font-size: 13px; line-height: 1.45;
   }
 
   .add-row { display: flex; justify-content: center; padding: 18px 0 8px; }
@@ -455,7 +460,7 @@
     <div class="section music">
       <span class="label-mono">Soundtrack</span>
       <div class="row">
-        <input id="musicPrompt" type="text" placeholder="Cinematic ambient, slow strings, melancholic…" />
+        <textarea id="musicPrompt" rows="8" placeholder="Cinematic ambient, slow strings, melancholic… (describe genre, mood, instruments, tempo)"></textarea>
       </div>
       <div class="row">
         <button class="btn primary" id="genMusic" style="flex:1">⚡ Generate</button>
@@ -870,20 +875,20 @@
               <label>What you see</label>
               <button class="btn tiny" data-action="gen-image" data-i="${i}">⚡ Generate</button>
             </div>
+            <textarea rows="4" data-i="${i}" data-k="description" placeholder="A wide shot of an empty diner at dusk, neon humming…"></textarea>
             <div class="img-preview" data-img="${i}">${frameImageHtml(f)}</div>
-            <textarea data-i="${i}" data-k="description" placeholder="A wide shot of an empty diner at dusk, neon humming…"></textarea>
           </div>
           <div class="col">
             <div class="col-head">
               <label>What you hear</label>
               <button class="btn tiny" data-action="gen-voice" data-i="${i}">⚡ Generate</button>
             </div>
+            <textarea rows="4" data-i="${i}" data-k="subtitle" placeholder="Some places remember you, even when no one's there."></textarea>
             <div class="wave-preview" data-wave="${i}"><canvas></canvas></div>
             <div class="wave-controls" data-wavectl="${i}" style="display:${f.audioKey ? "flex" : "none"}">
               <button class="btn tiny" data-action="play-audio" data-i="${i}">▶ Preview</button>
               <button class="btn tiny" data-action="clear-audio" data-i="${i}">Clear</button>
             </div>
-            <textarea data-i="${i}" data-k="subtitle" placeholder="Some places remember you, even when no one's there."></textarea>
           </div>
         </div>
       `;
