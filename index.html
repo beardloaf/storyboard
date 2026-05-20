@@ -52,7 +52,7 @@
   }
   main {
     min-width: 0;
-    padding: 20px 24px 40px;
+    padding: 14px 16px 30px;
   }
 
   /* Floating right panel */
@@ -163,74 +163,82 @@
 
   /* Editor */
   .editor { width: 100%; }
-  .frames { display: flex; flex-direction: column; gap: 14px; }
+  .frames {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  @media (max-width: 1180px) {
+    .frames { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 720px) {
+    .frames { grid-template-columns: 1fr; }
+  }
 
   .frame {
     background: var(--panel); border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 14px 16px 16px;
+    border-radius: 10px;
+    padding: 10px 12px 12px;
     display: flex; flex-direction: column;
-    gap: 12px;
-    container-type: inline-size;
+    gap: 8px;
     position: relative;
     transition: opacity .15s, transform .15s;
+    min-width: 0;
   }
   .frame.dragging { opacity: .35; }
-  .frame.drop-above::before,
-  .frame.drop-below::after {
-    content: ""; position: absolute; left: -2px; right: -2px;
-    height: 3px; background: var(--accent); border-radius: 2px;
+  .frame.drop-before::before,
+  .frame.drop-after::after {
+    content: ""; position: absolute; top: 6px; bottom: 6px;
+    width: 3px; background: var(--accent); border-radius: 2px;
     pointer-events: none;
   }
-  .frame.drop-above::before { top: -8px; }
-  .frame.drop-below::after { bottom: -8px; }
+  .frame.drop-before::before { left: -8px; }
+  .frame.drop-after::after { right: -8px; }
   .frame-head {
-    display: flex; align-items: center; gap: 12px;
-    color: var(--muted); font-family: var(--mono); font-size: 12px;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--muted); font-family: var(--mono); font-size: 11px;
   }
   .frame-head .grip {
     cursor: grab; user-select: none;
-    color: #555; font-size: 14px; line-height: 1;
-    padding: 4px 2px; margin-left: -4px;
+    color: #555; font-size: 12px; line-height: 1;
+    padding: 2px; margin-left: -2px;
     letter-spacing: -2px;
   }
   .frame-head .grip:hover { color: var(--accent); }
   .frame-head .grip:active { cursor: grabbing; }
   .frame-head .num { color: var(--accent); font-weight: 500; }
   .frame-head .spacer { flex: 1; }
-  .frame-head .dur { display: flex; align-items: center; gap: 6px; }
+  .frame-head .dur { display: flex; align-items: center; gap: 4px; font-size: 10px; }
   .frame-head .dur input {
-    width: 56px; padding: 4px 6px; font-size: 12px; text-align: center;
+    width: 48px; padding: 3px 5px; font-size: 11px; text-align: center;
     font-family: var(--mono);
   }
   .frame-head .remove {
     background: transparent; border: none; color: var(--muted);
-    cursor: pointer; padding: 4px 6px; font-size: 16px; line-height: 1; border-radius: 6px;
+    cursor: pointer; padding: 2px 5px; font-size: 14px; line-height: 1; border-radius: 6px;
   }
   .frame-head .remove:hover { color: var(--danger); background: rgba(255,93,93,.08); }
 
   .frame-body {
-    display: grid; grid-template-columns: 1fr; gap: 14px;
-  }
-  @container (min-width: 780px) {
-    .frame-body { grid-template-columns: 1fr 1fr; }
+    display: flex; flex-direction: column; gap: 8px;
   }
 
   .col { display: flex; flex-direction: column; }
   .col-head {
     display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
   }
   .col-head label {
-    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
-    letter-spacing: 1.6px; color: var(--muted); font-weight: 500;
+    font-family: var(--mono); font-size: 9px; text-transform: uppercase;
+    letter-spacing: 1.4px; color: var(--muted); font-weight: 500;
   }
+  .col-head .btn.tiny { padding: 3px 6px; font-size: 10px; }
 
   /* Image preview */
   .img-preview {
     background: #050505; border: 1px solid var(--line);
     border-radius: 8px; overflow: hidden;
-    aspect-ratio: 16 / 9; margin-bottom: 8px;
+    aspect-ratio: 16 / 9; margin-bottom: 0;
     position: relative;
     display: flex; align-items: center; justify-content: center;
   }
@@ -238,8 +246,8 @@
     width: 100%; height: 100%; object-fit: cover; display: block;
   }
   .img-preview .placeholder {
-    color: #444; font-family: var(--mono); font-size: 11px;
-    text-align: center; padding: 0 16px;
+    color: #444; font-family: var(--mono); font-size: 10px;
+    text-align: center; padding: 0 8px; line-height: 1.5;
   }
   .img-preview.loading::after {
     content: "rendering…"; position: absolute; inset: 0;
@@ -262,14 +270,15 @@
   /* Waveform */
   .wave-preview {
     background: #050505; border: 1px solid var(--line);
-    border-radius: 8px; padding: 10px;
-    margin-bottom: 8px;
-    aspect-ratio: 16 / 9;
+    border-radius: 8px; padding: 6px 8px;
+    margin-bottom: 0;
+    height: 56px;
     position: relative; display: flex; align-items: center; justify-content: center;
   }
   .wave-preview canvas { width: 100%; height: 100%; display: block; }
   .wave-preview .placeholder {
-    color: #444; font-family: var(--mono); font-size: 11px;
+    color: #444; font-family: var(--mono); font-size: 10px;
+    text-align: center; padding: 0 8px;
   }
   .wave-preview.loading::after {
     content: "rendering…"; position: absolute; inset: 0;
@@ -278,12 +287,13 @@
     background: rgba(5,5,5,.85); letter-spacing: 2px;
   }
   .wave-controls {
-    display: flex; gap: 6px; align-items: center; margin-bottom: 8px;
+    display: flex; gap: 4px; align-items: center; margin: 0;
   }
+  .wave-controls .btn.tiny { padding: 3px 6px; font-size: 10px; }
 
-  .col textarea { height: 120px; min-height: 120px; flex: none; }
-  @container (min-width: 780px) {
-    .col textarea { height: 140px; min-height: 140px; }
+  .col textarea {
+    height: 56px; min-height: 56px; flex: none;
+    padding: 8px 10px; font-size: 13px;
   }
 
   .add-row { display: flex; justify-content: center; padding: 18px 0 8px; }
@@ -822,7 +832,7 @@
 
   function frameImageHtml(f) {
     if (!f.imageKey) {
-      return `<div class="placeholder">Write a description, then ⚡ Generate.<br><small>Cinematic 16:9 still, Flux Pro 1.1</small></div>`;
+      return `<div class="placeholder">Write description<br>→ Generate</div>`;
     }
     return `<img alt="" data-key="${f.imageKey}" /><div class="corner"><button data-action="regen-image">↻</button><button data-action="clear-image">×</button></div>`;
   }
@@ -886,7 +896,7 @@
         canvas.style.display = "none";
         const ph = document.createElement("div");
         ph.className = "placeholder";
-        ph.textContent = "Write voiceover, then ⚡ Generate.";
+        ph.textContent = "Write voiceover → Generate";
         row.querySelector(`[data-wave="${i}"]`).appendChild(ph);
       }
     });
@@ -917,14 +927,14 @@
     if (!frame) return;
     e.preventDefault();
     const rect = frame.getBoundingClientRect();
-    const above = e.clientY < rect.top + rect.height / 2;
-    framesEl.querySelectorAll(".frame").forEach(f => f.classList.remove("drop-above","drop-below"));
-    frame.classList.toggle("drop-above", above);
-    frame.classList.toggle("drop-below", !above);
+    const before = e.clientX < rect.left + rect.width / 2;
+    framesEl.querySelectorAll(".frame").forEach(f => f.classList.remove("drop-before","drop-after"));
+    frame.classList.toggle("drop-before", before);
+    frame.classList.toggle("drop-after", !before);
   });
   framesEl.addEventListener("dragleave", e => {
     if (!e.target.closest(".frames")) {
-      framesEl.querySelectorAll(".frame").forEach(f => f.classList.remove("drop-above","drop-below"));
+      framesEl.querySelectorAll(".frame").forEach(f => f.classList.remove("drop-before","drop-after"));
     }
   });
   framesEl.addEventListener("drop", e => {
@@ -934,8 +944,8 @@
     e.preventDefault();
     const dropIdx = parseInt(frame.dataset.frameIdx, 10);
     const rect = frame.getBoundingClientRect();
-    const above = e.clientY < rect.top + rect.height / 2;
-    let insertAt = above ? dropIdx : dropIdx + 1;
+    const before = e.clientX < rect.left + rect.width / 2;
+    let insertAt = before ? dropIdx : dropIdx + 1;
     if (insertAt > dragSrcIdx) insertAt -= 1;
     if (insertAt === dragSrcIdx) { cleanupDrag(); return; }
     const doc = activeDoc();
@@ -948,7 +958,7 @@
   function cleanupDrag() {
     dragSrcIdx = null;
     framesEl.querySelectorAll(".frame").forEach(f =>
-      f.classList.remove("drop-above","drop-below","dragging")
+      f.classList.remove("drop-before","drop-after","dragging")
     );
   }
 
