@@ -808,39 +808,85 @@
     throw new Error(`Could not fetch ${url}`);
   }
 
+  const TMDB_STOPWORDS = new Set(("the and that with from this they have been will what when where which their there about into over under " +
+    "after before some only just also more most than then through while like very much such even your shot wide close pull " +
+    "scene frame still image picture view angle camera").split(/\s+/));
+
+  function extractKeywords(description, max = 5) {
+    const words = (description.toLowerCase().match(/[a-z]+/g) || [])
+      .filter(w => w.length >= 4 && !TMDB_STOPWORDS.has(w));
+    const seen = new Set(); const out = [];
+    for (const w of words) {
+      if (seen.has(w)) continue;
+      seen.add(w); out.push(w);
+      if (out.length >= max) break;
+    }
+    return out;
+  }
+
+  async function tmdbGet(path) {
+    const sep = path.includes("?") ? "&" : "?";
+    const res = await fetch(`https://api.themoviedb.org/3${path}${sep}api_key=${settings.tmdbKey}`);
+    if (!res.ok) throw new Error(`TMDb ${res.status}`);
+    return res.json();
+  }
+
   async function searchMovieStills(description, max = 3) {
     if (!settings.tmdbKey || !description.trim()) return [];
+    const urls = [];
+    const seen = new Set();
+    const pushUrl = (path) => {
+      if (!path) return;
+      const u = `https://image.tmdb.org/t/p/w1280${path}`;
+      if (!seen.has(u)) { seen.add(u); urls.push(u); }
+    };
+
     try {
-      const q = encodeURIComponent(description.trim().slice(0, 200));
-      const searchRes = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${settings.tmdbKey}&query=${q}&include_adult=false&page=1`);
-      if (!searchRes.ok) return [];
-      const searchData = await searchRes.json();
-      const candidates = (searchData.results || [])
-        .filter(r => r.media_type === "movie" || r.media_type === "tv")
-        .filter(r => r.backdrop_path)
-        .slice(0, 6);
-      const urls = [];
-      // Start with backdrop_path from search results (already cinematic stills)
-      for (const c of candidates) {
-        if (urls.length >= max) break;
-        urls.push(`https://image.tmdb.org/t/p/w1280${c.backdrop_path}`);
-      }
-      // If we still need more, pull additional images from the top hit
-      if (urls.length < max && candidates.length > 0) {
-        const top = candidates[0];
-        try {
-          const imgRes = await fetch(`https://api.themoviedb.org/3/${top.media_type}/${top.id}/images?api_key=${settings.tmdbKey}`);
-          if (imgRes.ok) {
-            const imgData = await imgRes.json();
-            const extras = (imgData.backdrops || []).slice(0, 5);
-            for (const b of extras) {
+      // 1) Multi-search (works if description happens to contain a title or strong proper noun)
+      try {
+        const q = encodeURIComponent(description.trim().slice(0, 200));
+        const data = await tmdbGet(`/search/multi?query=${q}&include_adult=false&page=1`);
+        for (const r of (data.results || [])) {
+          if (urls.length >= max) break;
+          if ((r.media_type === "movie" || r.media_type === "tv") && r.backdrop_path) pushUrl(r.backdrop_path);
+        }
+      } catch (e) { console.warn("multi-search skipped", e.message); }
+
+      // 2) Keyword-driven discover — the real workhorse for scene descriptions
+      if (urls.length < max) {
+        const keywords = extractKeywords(description, 5);
+        console.log("TMDb keyword candidates:", keywords);
+        for (const word of keywords) {
+          if (urls.length >= max) break;
+          try {
+            const kw = await tmdbGet(`/search/keyword?query=${encodeURIComponent(word)}&page=1`);
+            const top = (kw.results || []).slice(0, 2);
+            for (const k of top) {
               if (urls.length >= max) break;
-              const u = `https://image.tmdb.org/t/p/w1280${b.file_path}`;
-              if (!urls.includes(u)) urls.push(u);
+              try {
+                const disc = await tmdbGet(`/discover/movie?with_keywords=${k.id}&sort_by=vote_average.desc&vote_count.gte=100&page=1`);
+                for (const m of (disc.results || [])) {
+                  if (urls.length >= max) break;
+                  if (m.backdrop_path) pushUrl(m.backdrop_path);
+                }
+              } catch (e) { console.warn("discover failed for keyword", word, e.message); }
             }
-          }
-        } catch {}
+          } catch (e) { console.warn("keyword lookup failed", word, e.message); }
+        }
       }
+
+      // 3) Last resort: pull popular movie backdrops so at least something cinematic lands in the catalogue
+      if (urls.length === 0) {
+        try {
+          const pop = await tmdbGet(`/movie/popular?page=1`);
+          for (const m of (pop.results || [])) {
+            if (urls.length >= max) break;
+            if (m.backdrop_path) pushUrl(m.backdrop_path);
+          }
+        } catch (e) { console.warn("popular fallback failed", e.message); }
+      }
+
+      console.log(`TMDb returning ${urls.length} still URL(s)`);
       return urls.slice(0, max);
     } catch (e) {
       console.warn("TMDb search failed", e);
