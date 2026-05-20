@@ -622,12 +622,38 @@
   const SETTINGS_KEY = "storyboard.settings.v2";
 
   const ELEVEN_VOICES = [
-    { id: "pNInz6obpgDQGcFmaJgB", name: "Adam — deep, smooth" },
-    { id: "ErXwobaYiN019PkySvjV", name: "Antoni — warm, well-rounded" },
-    { id: "TxGEqnHWrfWFTfGW9XjX", name: "Josh — young, deep" },
-    { id: "VR6AewLTigWG4xSOukaG", name: "Arnold — crisp" },
-    { id: "yoZ06aMxZJJ28mfd3POQ", name: "Sam — raspy" },
-    { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel — narration" }
+    // Male · Narrator
+    { id: "pNInz6obpgDQGcFmaJgB", name: "Adam — deep, smooth American",            group: "Male · Narrator" },
+    { id: "nPczCjzI2devNBz1zQrb", name: "Brian — warm, mature American",           group: "Male · Narrator" },
+    { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel — British, authoritative",         group: "Male · Narrator" },
+    { id: "ZQe5CZNOzWyzPSCn5a3c", name: "James — calm, measured British",          group: "Male · Narrator" },
+    { id: "JBFqnCBsd6RMkjVDRZzb", name: "George — warm, mature British",           group: "Male · Narrator" },
+    // Male · Conversational
+    { id: "IKne3meq5aSn9XLyUdCD", name: "Charlie — casual Australian",             group: "Male · Conversational" },
+    { id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam — articulate young American",        group: "Male · Conversational" },
+    { id: "ErXwobaYiN019PkySvjV", name: "Antoni — warm, well-rounded",             group: "Male · Conversational" },
+    { id: "g5CIjZEefAph4nQFvHAz", name: "Ethan — soft, youthful",                  group: "Male · Conversational" },
+    { id: "bVMeCyTHy58xNoL34h3p", name: "Jeremy — Irish, friendly",                group: "Male · Conversational" },
+    // Male · Character
+    { id: "TxGEqnHWrfWFTfGW9XjX", name: "Josh — young, deep",                      group: "Male · Character" },
+    { id: "VR6AewLTigWG4xSOukaG", name: "Arnold — crisp",                          group: "Male · Character" },
+    { id: "yoZ06aMxZJJ28mfd3POQ", name: "Sam — raspy",                             group: "Male · Character" },
+    { id: "N2lVS1w4EtoT3dr4eOWO", name: "Callum — Scottish, intense",              group: "Male · Character" },
+    { id: "GBv7mTt0atIp3Br8iCZE", name: "Thomas — calm, meditative",               group: "Male · Character" },
+    // Female · Narrator
+    { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel — calm, mature American",          group: "Female · Narrator" },
+    { id: "pFZP5JQG7iQjIQuC4Bku", name: "Lily — warm, mature British",             group: "Female · Narrator" },
+    { id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda — pleasant, articulate",          group: "Female · Narrator" },
+    { id: "XB0fDUnXU5powFXDhCwa", name: "Charlotte — Swedish-accented English",    group: "Female · Narrator" },
+    // Female · Conversational
+    { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah — soft, young",                     group: "Female · Conversational" },
+    { id: "oWAxZDx7w5VEj9dCyTzz", name: "Grace — Southern American, soft",         group: "Female · Conversational" },
+    { id: "pMsXgVXv3BLzUgSXRplE", name: "Serena — pleasant, mid-range",            group: "Female · Conversational" },
+    // Female · Character
+    { id: "AZnzlk1XvdvUeBnXmlld", name: "Domi — strong, confident",                group: "Female · Character" },
+    { id: "jsCqWAovK2LkecY7zXl4", name: "Freya — expressive, dynamic",             group: "Female · Character" },
+    { id: "MF3mGyEYCl7XYWbV9V6O", name: "Elli — emotional, young",                 group: "Female · Character" },
+    { id: "piTKgcLEGmPE4e6mEKli", name: "Nicole — whispering, intimate",           group: "Female · Character" }
   ];
 
   let store = { active: "Untitled", docs: {} };
@@ -1461,9 +1487,20 @@
     });
   }
   function showSettings() {
-    const voiceOpts = ELEVEN_VOICES.map(v =>
-      `<option value="${v.id}" ${v.id===settings.voiceId?"selected":""}>${escapeHtml(v.name)}</option>`
-    ).join("");
+    const voiceOpts = (() => {
+      const groups = {};
+      const order = [];
+      for (const v of ELEVEN_VOICES) {
+        const g = v.group || "Voices";
+        if (!groups[g]) { groups[g] = []; order.push(g); }
+        groups[g].push(v);
+      }
+      return order.map(g =>
+        `<optgroup label="${escapeHtml(g)}">` +
+        groups[g].map(v => `<option value="${v.id}" ${v.id===settings.voiceId?"selected":""}>${escapeHtml(v.name)}</option>`).join("") +
+        `</optgroup>`
+      ).join("");
+    })();
     showModal(`
       <h3>API keys & voice</h3>
       <p>Keys live in your browser only (localStorage). Sent directly to each provider from this page.<br>
@@ -1561,7 +1598,8 @@
       headers: { "Content-Type": "application/json", "xi-api-key": settings.elevenKey, "Accept": "audio/mpeg" },
       body: JSON.stringify({
         text, model_id: "eleven_multilingual_v2",
-        voice_settings: { stability: 0.55, similarity_boost: 0.75, style: 0.15, use_speaker_boost: true }
+        // stability low → less monotone; style high → more emotion. Trade-off: occasional artifacts.
+        voice_settings: { stability: 0.35, similarity_boost: 0.75, style: 0.5, use_speaker_boost: true }
       })
     });
     if (!res.ok) { const t = await res.text(); throw new Error(`ElevenLabs TTS ${res.status}: ${t.slice(0,300)}`); }
