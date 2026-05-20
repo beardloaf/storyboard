@@ -549,7 +549,12 @@
     <div class="section-divider"></div>
 
     <div class="section">
-      <button class="btn" id="settingsBtn" title="API keys & voice">⚙ API keys</button>
+      <button class="btn" id="genAllImagesBtn" title="Generate images for every frame that has a description and no image yet">⚡ Generate all images</button>
+      <button class="btn" id="genAllAudioBtn" title="Generate voiceovers for every frame that has a subtitle and no audio yet">⚡ Generate all voiceovers</button>
+    </div>
+
+    <div class="section">
+      <button class="btn" id="settingsBtn" title="Settings, API keys, voice">⚙ Settings</button>
     </div>
 
     <div class="section-divider"></div>
@@ -1504,7 +1509,7 @@
       ).join("");
     })();
     showModal(`
-      <h3>API keys & voice</h3>
+      <h3>Settings</h3>
       <p>Keys live in your browser only (localStorage). Sent directly to each provider from this page.<br>
         <a href="https://docs.bfl.ai/quick_start/introduction" target="_blank">Get BFL key</a> ·
         <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank">Get ElevenLabs key</a>
@@ -2744,6 +2749,81 @@
     }
   }
   document.getElementById("downloadBtn").addEventListener("click", exportStoryboard);
+
+  // --- Bulk generation ---
+  async function generateAllImages() {
+    if (!settings.bflProxyUrl || !settings.bflKey) {
+      alert("Add your BFL key + proxy URL in Settings first.");
+      showSettings(); return;
+    }
+    const doc = activeDoc();
+    const targets = [];
+    doc.frames.forEach((f, i) => {
+      if (f.description.trim() && !f.imageKey) targets.push(i);
+    });
+    if (targets.length === 0) {
+      alert("Nothing to do — every frame with a description already has an image. Use the per-frame ⚡ button to regenerate a specific one.");
+      return;
+    }
+    if (!confirm(`Generate images for ${targets.length} frame${targets.length === 1 ? "" : "s"}? Each takes ~10–30s.`)) return;
+    const btn = document.getElementById("genAllImagesBtn"); btn.disabled = true;
+    const status = showExportStatus(`Generating image 1 of ${targets.length}…`);
+    let done = 0, failed = 0;
+    for (let n = 0; n < targets.length; n++) {
+      const i = targets[n];
+      updateExportStatus(status, `Generating image ${n+1} of ${targets.length} (frame #${i+1})…`, (n / targets.length) * 100);
+      try {
+        await handleGenerateImage(i, null);
+        if (activeDoc().frames[i].imageKey) done++; else failed++;
+      } catch (e) {
+        console.warn("bulk image failed for frame", i, e);
+        failed++;
+      }
+    }
+    hideExportStatus();
+    btn.disabled = false;
+    if (failed > 0) alert(`Done. ${done} generated, ${failed} failed. Check the per-frame previews.`);
+  }
+
+  async function generateAllAudio() {
+    if (!settings.elevenKey) {
+      alert("Add your ElevenLabs key in Settings first.");
+      showSettings(); return;
+    }
+    const doc = activeDoc();
+    const targets = [];
+    doc.frames.forEach((f, i) => {
+      if (f.subtitle.trim() && !f.audioKey) targets.push(i);
+    });
+    if (targets.length === 0) {
+      alert("Nothing to do — every frame with a subtitle already has a voiceover. Use the per-frame ⚡ button to regenerate.");
+      return;
+    }
+    if (!confirm(`Generate voiceovers for ${targets.length} frame${targets.length === 1 ? "" : "s"}?`)) return;
+    const btn = document.getElementById("genAllAudioBtn"); btn.disabled = true;
+    const status = showExportStatus(`Generating voice 1 of ${targets.length}…`);
+    let done = 0, failed = 0;
+    for (let n = 0; n < targets.length; n++) {
+      const i = targets[n];
+      updateExportStatus(status, `Generating voice ${n+1} of ${targets.length} (frame #${i+1})…`, (n / targets.length) * 100);
+      try {
+        // Pass null btn so handleGenerateVoice doesn't try to enable/disable a non-existent button.
+        // The per-frame button on this frame already exists in the DOM though, so we can pass it.
+        const innerBtn = document.querySelector(`[data-action="gen-voice"][data-i="${i}"]`);
+        await handleGenerateVoice(i, innerBtn);
+        if (activeDoc().frames[i].audioKey) done++; else failed++;
+      } catch (e) {
+        console.warn("bulk voice failed for frame", i, e);
+        failed++;
+      }
+    }
+    hideExportStatus();
+    btn.disabled = false;
+    if (failed > 0) alert(`Done. ${done} generated, ${failed} failed. Check the per-frame waveforms.`);
+  }
+
+  document.getElementById("genAllImagesBtn").addEventListener("click", generateAllImages);
+  document.getElementById("genAllAudioBtn").addEventListener("click", generateAllAudio);
 
   function renderAll() { renderDocPicker(); renderMusic(); renderEditor(); }
 
