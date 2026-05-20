@@ -16,7 +16,9 @@
     --line-2: #353535;
     --text: #ececec;
     --muted: #8a8a8a;
-    --accent: #e9b949;
+    --accent: #4d7c5a;          /* hunter green */
+    --accent-soft: #5f9170;     /* lighter for hover / highlights */
+    --accent-rgb: 77, 124, 90;
     --accent-2: #d9d9d9;
     --danger: #ff5d5d;
     --good: #6ed18a;
@@ -36,12 +38,13 @@
     color: var(--text);
     background: var(--panel-2);
     border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 10px 12px;
+    border-radius: 12px;
+    padding: 11px 14px;
     outline: none;
     width: 100%;
+    transition: border-color .15s;
   }
-  input:focus, textarea:focus, select:focus { border-color: var(--accent-2); }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
   textarea { resize: vertical; }
 
   .app {
@@ -52,7 +55,7 @@
   }
   main {
     min-width: 0;
-    padding: 14px 16px 30px;
+    padding: 28px 32px 40px;
   }
 
   /* Floating right panel */
@@ -61,22 +64,22 @@
     height: 100vh; overflow-y: auto;
     background: var(--panel);
     border-left: 1px solid var(--line);
-    padding: 18px 18px 24px;
+    padding: 28px 24px 32px;
     display: flex; flex-direction: column;
-    gap: 18px;
+    gap: 24px;
   }
   .side-panel .section {
-    display: flex; flex-direction: column; gap: 10px;
+    display: flex; flex-direction: column; gap: 12px;
   }
   .side-panel .section-divider {
-    height: 1px; background: var(--line); margin: 4px -4px;
+    height: 1px; background: var(--line); margin: 6px -6px;
   }
   .brand { display: flex; align-items: center; height: 22px; }
   .brand img { max-height: 22px; display: block; }
 
   .doc-picker { display: flex; align-items: center; gap: 6px; }
   .doc-picker select {
-    flex: 1; min-width: 0; padding: 7px 28px 7px 10px; font-size: 13px;
+    flex: 1; min-width: 0; padding: 8px 30px 8px 14px; font-size: 13px; border-radius: 999px;
     background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
                       linear-gradient(135deg, var(--muted) 50%, transparent 50%);
     background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
@@ -89,11 +92,14 @@
     color: var(--muted); font-size: 12px;
     flex-wrap: wrap;
   }
-  .config input[type=number] { width: 60px; padding: 6px 8px; font-size: 13px; }
+  .config input[type=number] {
+    width: 62px; padding: 7px 12px; font-size: 13px; border-radius: 999px; text-align: center;
+  }
 
   .panel-play, .panel-download {
     width: 100%; justify-content: center;
-    padding: 12px; font-size: 14px;
+    padding: 14px 20px; font-size: 14px;
+    border-radius: 999px;
   }
 
   @media (max-width: 900px) {
@@ -108,20 +114,28 @@
     border: 1px solid var(--line);
     background: var(--panel-2);
     color: var(--text);
-    padding: 8px 14px;
-    border-radius: 8px;
+    padding: 9px 18px;
+    border-radius: 999px;
     cursor: pointer; font-size: 13px;
     white-space: nowrap;
+    transition: background .15s, border-color .15s, color .15s;
   }
-  .btn:hover { border-color: var(--line-2); }
+  .btn:hover { border-color: var(--accent-soft); }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
   .btn.primary {
-    background: var(--accent); color: #1a1a1a; border-color: var(--accent); font-weight: 600;
+    background: var(--accent); color: #f6f9f6; border-color: var(--accent); font-weight: 600;
   }
-  .btn.primary:hover { filter: brightness(1.05); }
+  .btn.primary:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
   .btn.ghost { background: transparent; }
-  .btn.icon { padding: 6px 10px; font-size: 13px; }
-  .btn.tiny { padding: 4px 8px; font-size: 11px; font-family: var(--mono); letter-spacing: .5px; }
+  .btn.icon {
+    padding: 0; width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; border-radius: 999px;
+  }
+  .btn.tiny {
+    padding: 4px 12px; font-size: 11px; font-family: var(--mono);
+    letter-spacing: .5px; border-radius: 999px;
+  }
   .btn.danger { color: var(--danger); border-color: transparent; background: transparent; }
   .btn.danger:hover { background: rgba(255,93,93,.08); }
 
@@ -143,7 +157,7 @@
   }
   .music .wave-mini .progress-overlay {
     position: absolute; top: 0; left: 0; bottom: 0;
-    background: rgba(233,185,73,.18);
+    background: rgba(var(--accent-rgb),.22);
     border-right: 2px solid var(--accent);
     width: 0%; pointer-events: none; z-index: 2;
     transition: width .08s linear;
@@ -166,7 +180,7 @@
   .frames {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
+    gap: 20px;
   }
   @media (max-width: 1180px) {
     .frames { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -177,10 +191,10 @@
 
   .frame {
     background: var(--panel); border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 10px 12px 12px;
+    border-radius: 14px;
+    padding: 16px 18px 18px;
     display: flex; flex-direction: column;
-    gap: 8px;
+    gap: 12px;
     position: relative;
     transition: opacity .15s, transform .15s;
     min-width: 0;
@@ -210,8 +224,8 @@
   .frame-head .spacer { flex: 1; }
   .frame-head .dur { display: flex; align-items: center; gap: 4px; font-size: 10px; }
   .frame-head .dur input {
-    width: 48px; padding: 3px 5px; font-size: 11px; text-align: center;
-    font-family: var(--mono);
+    width: 56px; padding: 4px 8px; font-size: 11px; text-align: center;
+    font-family: var(--mono); border-radius: 999px;
   }
   .frame-head .remove {
     background: transparent; border: none; color: var(--muted);
@@ -379,7 +393,7 @@
   .modal-backdrop.show { display: flex; }
   .modal {
     background: var(--panel); border: 1px solid var(--line);
-    border-radius: 12px; padding: 22px; min-width: 380px; max-width: 560px;
+    border-radius: 18px; padding: 28px; min-width: 380px; max-width: 560px;
     width: 92%; max-height: 90vh; overflow-y: auto;
   }
   .modal h3 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
@@ -763,7 +777,7 @@
     const mid = rect.height / 2;
     const barWidth = rect.width / peaks.length;
     const barPad = Math.max(0.5, barWidth * 0.25);
-    ctx.fillStyle = "#e9b949";
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#4d7c5a";
     peaks.forEach((p, i) => {
       const h = Math.max(1, p * (rect.height - 4));
       ctx.fillRect(i * barWidth + barPad/2, mid - h/2, Math.max(1, barWidth - barPad), h);
