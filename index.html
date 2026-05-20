@@ -1175,18 +1175,28 @@ Constraints:
     const body = settings.bflModel.includes("ultra")
       ? { prompt: cinePrompt, aspect_ratio: "16:9", prompt_upsampling: true, safety_tolerance: 2, output_format: "jpeg", raw: false }
       : { prompt: cinePrompt, width: 1024, height: 576, prompt_upsampling: true, safety_tolerance: 2, output_format: "jpeg" };
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-key": settings.bflKey, "accept": "application/json" },
-      body: JSON.stringify(body)
-    });
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-key": settings.bflKey, "accept": "application/json" },
+        body: JSON.stringify(body)
+      });
+    } catch (e) {
+      throw new Error(`Network/CORS error calling BFL — likely BFL doesn't allow browser-direct calls from ${location.origin}. Open DevTools → Console for the exact reason. (${e.message})`);
+    }
     if (!res.ok) { const t = await res.text(); throw new Error(`BFL ${res.status}: ${t.slice(0,300)}`); }
     const job = await res.json();
     const pollUrl = job.polling_url || `https://api.bfl.ai/v1/get_result?id=${job.id}`;
     const deadline = Date.now() + 120000;
     while (Date.now() < deadline) {
       await new Promise(r => setTimeout(r, 1200));
-      const pr = await fetch(pollUrl, { headers: { "x-key": settings.bflKey, "accept": "application/json" } });
+      let pr;
+      try {
+        pr = await fetch(pollUrl, { headers: { "x-key": settings.bflKey, "accept": "application/json" } });
+      } catch (e) {
+        throw new Error(`Network/CORS error polling BFL. (${e.message})`);
+      }
       if (!pr.ok) { const t = await pr.text(); throw new Error(`BFL poll ${pr.status}: ${t.slice(0,200)}`); }
       const pj = await pr.json();
       if (pj.status === "Ready" && pj.result && pj.result.sample) return pj.result.sample;
