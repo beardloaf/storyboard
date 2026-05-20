@@ -457,6 +457,7 @@
   let store = { active: "Untitled", docs: {} };
   let settings = {
     bflKey: "",
+    bflProxyUrl: "",
     elevenKey: "",
     anthropicKey: "",
     voiceId: "pNInz6obpgDQGcFmaJgB",
@@ -987,8 +988,11 @@
         <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank">Get ElevenLabs key</a> ·
         <a href="https://console.anthropic.com/" target="_blank">Get Anthropic key</a>
       </p>
-      <label>Black Forest Labs (images)</label>
+      <label>BFL API key (images)</label>
       <input id="setBfl" type="password" placeholder="bfl-…" value="${escapeHtml(settings.bflKey)}" />
+      <label>BFL Proxy URL — required (Cloudflare Worker)</label>
+      <input id="setBflProxy" type="text" placeholder="https://bfl-proxy.your-subdomain.workers.dev" value="${escapeHtml(settings.bflProxyUrl)}" />
+      <p style="margin-top:6px;font-size:11px;color:var(--muted)">BFL blocks browser calls. Deploy the proxy in <a href="https://github.com/beardloaf/storyboard/blob/main/bfl-proxy.worker.js" target="_blank">bfl-proxy.worker.js</a> to a free Cloudflare Worker, then paste its URL here.</p>
       <label>ElevenLabs (voice + music)</label>
       <input id="setEleven" type="password" placeholder="xi-…" value="${escapeHtml(settings.elevenKey)}" />
       <label>Anthropic (document import, suggestions)</label>
@@ -1006,6 +1010,7 @@
       </div>`);
     document.getElementById("modalOk").addEventListener("click", () => {
       settings.bflKey = document.getElementById("setBfl").value.trim();
+      settings.bflProxyUrl = document.getElementById("setBflProxy").value.trim().replace(/\/+$/, "");
       settings.elevenKey = document.getElementById("setEleven").value.trim();
       settings.anthropicKey = document.getElementById("setAnth").value.trim();
       settings.voiceId = document.getElementById("setVoice").value;
@@ -1171,7 +1176,11 @@ Constraints:
 
   async function callBflFlux(prompt) {
     const cinePrompt = `Cinematic film still, anamorphic widescreen, 35mm film grain, natural lighting, shallow depth of field, color graded, photorealistic, atmospheric. ${prompt}`;
-    const url = `https://api.bfl.ai/v1/${settings.bflModel}`;
+    if (!settings.bflProxyUrl) {
+      throw new Error("Set BFL Proxy URL in ⚙ API keys — BFL blocks browser calls so a Cloudflare Worker proxy is required. See bfl-proxy.worker.js in the repo for the code and deploy steps.");
+    }
+    const base = settings.bflProxyUrl.replace(/\/+$/, "");
+    const url = `${base}/v1/${settings.bflModel}`;
     const body = settings.bflModel.includes("ultra")
       ? { prompt: cinePrompt, aspect_ratio: "16:9", prompt_upsampling: true, safety_tolerance: 2, output_format: "jpeg", raw: false }
       : { prompt: cinePrompt, width: 1024, height: 576, prompt_upsampling: true, safety_tolerance: 2, output_format: "jpeg" };
@@ -1183,11 +1192,11 @@ Constraints:
         body: JSON.stringify(body)
       });
     } catch (e) {
-      throw new Error(`Network/CORS error calling BFL — likely BFL doesn't allow browser-direct calls from ${location.origin}. Open DevTools → Console for the exact reason. (${e.message})`);
+      throw new Error(`Network error reaching proxy ${base} — check the URL is correct and the Worker is deployed. (${e.message})`);
     }
     if (!res.ok) { const t = await res.text(); throw new Error(`BFL ${res.status}: ${t.slice(0,300)}`); }
     const job = await res.json();
-    const pollUrl = job.polling_url || `https://api.bfl.ai/v1/get_result?id=${job.id}`;
+    const pollUrl = job.polling_url || `${base}/v1/get_result?id=${job.id}`;
     const deadline = Date.now() + 120000;
     while (Date.now() < deadline) {
       await new Promise(r => setTimeout(r, 1200));
@@ -1195,7 +1204,7 @@ Constraints:
       try {
         pr = await fetch(pollUrl, { headers: { "x-key": settings.bflKey, "accept": "application/json" } });
       } catch (e) {
-        throw new Error(`Network/CORS error polling BFL. (${e.message})`);
+        throw new Error(`Network error polling proxy. (${e.message})`);
       }
       if (!pr.ok) { const t = await pr.text(); throw new Error(`BFL poll ${pr.status}: ${t.slice(0,200)}`); }
       const pj = await pr.json();
@@ -1413,7 +1422,7 @@ Constraints:
 
   function renderKeyBanner() {
     const missing = [];
-    if (!settings.bflKey) missing.push("BFL (images)");
+    if (!settings.bflKey || !settings.bflProxyUrl) missing.push("BFL (key + proxy URL for images)");
     if (!settings.elevenKey) missing.push("ElevenLabs (voice + music)");
     if (!settings.anthropicKey) missing.push("Anthropic (document import)");
     const banner = document.getElementById("keyBanner");
