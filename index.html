@@ -452,6 +452,34 @@
   .modal a { color: var(--accent-2); text-decoration: none; }
   .modal a:hover { text-decoration: underline; }
 
+  /* Shared-view (view-only) landing */
+  .share-view {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 40px 24px; text-align: center; gap: 20px;
+  }
+  .share-view .brand img { max-height: 28px; }
+  .share-view h1 {
+    margin: 0; font-size: clamp(28px, 4vw, 44px);
+    font-weight: 600; letter-spacing: -0.5px;
+  }
+  .share-view .meta {
+    color: var(--muted); font-family: var(--mono); font-size: 12px;
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+  .share-view .play-cta {
+    padding: 16px 32px; font-size: 16px; margin-top: 12px;
+  }
+  .share-view .footer {
+    margin-top: 32px; font-size: 12px; color: var(--muted);
+  }
+  .share-view .footer a { color: var(--accent-soft); text-decoration: none; }
+  .share-view .footer a:hover { text-decoration: underline; }
+  .share-loading {
+    color: var(--muted); font-family: var(--mono); font-size: 12px; letter-spacing: 1px;
+  }
+
   /* Export progress */
   .export-status {
     position: fixed; bottom: 20px; left: 50%;
@@ -535,6 +563,7 @@
     <div class="section" style="margin-top:auto">
       <button class="btn primary panel-play" id="playBtn">▶ Play</button>
       <button class="btn panel-download" id="downloadBtn">⬇ Download MP4 (2K)</button>
+      <button class="btn panel-download" id="shareBtn">↗ Share link</button>
     </div>
   </aside>
 
@@ -597,6 +626,8 @@
     bflProxyUrl: "",
     elevenKey: "",
     tmdbKey: "",
+    githubToken: "",
+    githubRepo: "beardloaf/storyboard",
     voiceId: "pNInz6obpgDQGcFmaJgB",
     bflModel: "flux-pro-1.1"
   };
@@ -1439,6 +1470,11 @@
       <label>TMDb (optional — movie/TV stills alongside generated images)</label>
       <input id="setTmdb" type="password" placeholder="api_key from themoviedb.org" value="${escapeHtml(settings.tmdbKey)}" />
       <p style="margin-top:6px;font-size:11px;color:var(--muted)">Get a free TMDb key at <a href="https://www.themoviedb.org/settings/api" target="_blank">themoviedb.org/settings/api</a>. When set, ⚡ Generate also pulls up to 3 relevant movie/TV stills into your image catalogue.</p>
+      <label>GitHub PAT (for share links — needs <code>repo</code> scope)</label>
+      <input id="setGhToken" type="password" placeholder="ghp_…" value="${escapeHtml(settings.githubToken)}" />
+      <label>Share repo (owner/name)</label>
+      <input id="setGhRepo" type="text" placeholder="beardloaf/storyboard" value="${escapeHtml(settings.githubRepo)}" />
+      <p style="margin-top:6px;font-size:11px;color:var(--muted)">Create a PAT at <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a> (fine-grained or classic — needs Contents: read+write on this repo). Shares are stored as JSON files in <code>shares/</code>.</p>
       <label>Voice</label>
       <select id="setVoice">${voiceOpts}</select>
       <label>BFL model</label>
@@ -1455,6 +1491,8 @@
       settings.bflProxyUrl = document.getElementById("setBflProxy").value.trim().replace(/\/+$/, "");
       settings.elevenKey = document.getElementById("setEleven").value.trim();
       settings.tmdbKey = document.getElementById("setTmdb").value.trim();
+      settings.githubToken = document.getElementById("setGhToken").value.trim();
+      settings.githubRepo = document.getElementById("setGhRepo").value.trim() || "beardloaf/storyboard";
       settings.voiceId = document.getElementById("setVoice").value;
       settings.bflModel = document.getElementById("setBflModel").value;
       saveSettings(); hideModal();
@@ -1831,6 +1869,383 @@
     if (e.key === "ArrowLeft") gotoFrame(playState.idx - 1);
   });
 
+  // --- Share link (GitHub-backed) ---
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => {
+        const s = String(r.result);
+        const idx = s.indexOf(",");
+        resolve(idx >= 0 ? s.slice(idx + 1) : s);
+      };
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+  async function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+  function dataUrlToBlobSync(dataUrl) {
+    const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
+    if (!m) return null;
+    const type = m[1];
+    const b64 = m[2];
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type });
+  }
+  function randomSlug() {
+    return Math.random().toString(36).slice(2, 6) + Math.random().toString(36).slice(2, 6);
+  }
+
+  async function bundleStoryboardForShare() {
+    const doc = activeDoc();
+    const frames = [];
+    for (const f of doc.frames) {
+      let imageDataUrl = null, imageType = null;
+      if (f.imageKey) {
+        const blob = await idbGet(f.imageKey);
+        if (blob) {
+          imageDataUrl = await blobToDataUrl(blob);
+          imageType = mediaTypeFor(f, f.imageKey);
+        }
+      }
+      let audioDataUrl = null;
+      if (f.audioKey) {
+        const blob = await idbGet(f.audioKey);
+        if (blob) audioDataUrl = await blobToDataUrl(blob);
+      }
+      frames.push({
+        description: f.description || "",
+        subtitle: f.subtitle || "",
+        duration: f.duration,
+        wave: f.wave || [],
+        image: imageDataUrl, imageType,
+        audio: audioDataUrl
+      });
+    }
+    let musicDataUrl = null;
+    if (doc.musicKey) {
+      const blob = await idbGet(doc.musicKey);
+      if (blob) musicDataUrl = await blobToDataUrl(blob);
+    }
+    return {
+      version: 1,
+      name: store.active,
+      createdAt: new Date().toISOString(),
+      music: musicDataUrl,
+      frames
+    };
+  }
+
+  function utf8ToBase64(str) {
+    // GitHub Contents API requires base64-encoded content
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+
+  async function uploadShare() {
+    if (!settings.githubToken) { alert("Add a GitHub PAT in ⚙ API keys (needs repo:contents write)."); showSettings(); return; }
+    if (!settings.githubRepo || !settings.githubRepo.includes("/")) {
+      alert("Set the share repo (owner/name) in ⚙ API keys."); showSettings(); return;
+    }
+    const slug = randomSlug();
+    const status = showExportStatus("Bundling storyboard…");
+    try {
+      updateExportStatus(status, "Bundling assets…", 10);
+      const bundle = await bundleStoryboardForShare();
+      const json = JSON.stringify(bundle);
+      updateExportStatus(status, `Uploading ${(json.length / 1024).toFixed(0)} KB to GitHub…`, 55);
+      const apiUrl = `https://api.github.com/repos/${settings.githubRepo}/contents/shares/${slug}.json`;
+      const res = await fetch(apiUrl, {
+        method: "PUT",
+        headers: {
+          "Accept": "application/vnd.github+json",
+          "Authorization": `Bearer ${settings.githubToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: `share: ${store.active} (${slug})`,
+          content: utf8ToBase64(json)
+        })
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(`GitHub ${res.status}: ${t.slice(0, 300)}`);
+      }
+      const shareUrl = `${location.origin}${location.pathname}?share=${slug}`;
+      updateExportStatus(status, "Done", 100);
+      setTimeout(hideExportStatus, 600);
+      showShareLinkModal(shareUrl);
+    } catch (e) {
+      console.error(e);
+      hideExportStatus();
+      alert("Share failed: " + e.message);
+    }
+  }
+
+  function showShareLinkModal(url) {
+    showModal(`
+      <h3>Shareable link</h3>
+      <p>Anyone with this link can watch your storyboard. They can't edit it.</p>
+      <input id="shareUrl" type="text" readonly value="${escapeHtml(url)}" />
+      <div class="actions">
+        <button class="btn ghost" id="modalCancel">Close</button>
+        <button class="btn primary" id="modalOk">Copy link</button>
+      </div>`);
+    const input = document.getElementById("shareUrl");
+    setTimeout(() => { input.focus(); input.select(); }, 10);
+    document.getElementById("modalOk").addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(url); document.getElementById("modalOk").textContent = "Copied ✓"; }
+      catch { input.select(); document.execCommand("copy"); }
+    });
+    document.getElementById("modalCancel").addEventListener("click", hideModal);
+  }
+  document.getElementById("shareBtn").addEventListener("click", uploadShare);
+
+  // --- Share-mode view (recipient side) ---
+  async function loadSharedBundle(slug) {
+    const repo = settings.githubRepo || "beardloaf/storyboard";
+    // Try raw.githubusercontent first (instant after commit); fall back to Pages.
+    const candidates = [
+      `https://raw.githubusercontent.com/${repo}/main/shares/${slug}.json`,
+      `${location.origin}${location.pathname.replace(/[^/]*$/, "")}shares/${slug}.json`
+    ];
+    let bundle = null, lastErr = null;
+    for (const u of candidates) {
+      try {
+        const res = await fetch(u, { cache: "no-store" });
+        if (res.ok) { bundle = await res.json(); break; }
+        lastErr = new Error(`${res.status} from ${u}`);
+      } catch (e) { lastErr = e; }
+    }
+    if (!bundle) throw lastErr || new Error("Could not load share");
+    return bundle;
+  }
+
+  async function enterShareMode(slug) {
+    document.body.innerHTML = `
+      <div class="share-view">
+        <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
+        <div class="share-loading">Loading storyboard…</div>
+      </div>`;
+    let bundle;
+    try {
+      bundle = await loadSharedBundle(slug);
+    } catch (e) {
+      document.body.innerHTML = `
+        <div class="share-view">
+          <h1>Storyboard not found</h1>
+          <p class="meta">${escapeHtml(e.message)}</p>
+          <a href="${location.origin}${location.pathname}" class="btn">Open the editor</a>
+        </div>`;
+      return;
+    }
+    // Build a doc in memory; convert base64 assets back to blobs and stash them
+    // in IDB under share-prefixed keys so the existing player code Just Works.
+    const doc = { totalSec: 0, frameSec: 5, musicPrompt: "", musicKey: "", frames: [] };
+    if (bundle.music) {
+      const blob = dataUrlToBlobSync(bundle.music);
+      if (blob) {
+        const key = `share-${slug}-music`;
+        await idbPut(key, blob);
+        doc.musicKey = key;
+      }
+    }
+    for (let i = 0; i < bundle.frames.length; i++) {
+      const fb = bundle.frames[i];
+      const f = {
+        description: fb.description || "",
+        subtitle: fb.subtitle || "",
+        duration: fb.duration || 5,
+        wave: fb.wave || [],
+        imageKey: "", imageHistory: [], mediaTypes: {},
+        audioKey: ""
+      };
+      if (fb.image) {
+        const blob = dataUrlToBlobSync(fb.image);
+        if (blob) {
+          const key = `share-${slug}-img-${i}`;
+          await idbPut(key, blob);
+          f.imageKey = key;
+          f.imageHistory.push(key);
+          f.mediaTypes[key] = fb.imageType || blob.type || "image/jpeg";
+        }
+      }
+      if (fb.audio) {
+        const blob = dataUrlToBlobSync(fb.audio);
+        if (blob) {
+          const key = `share-${slug}-audio-${i}`;
+          await idbPut(key, blob);
+          f.audioKey = key;
+        }
+      }
+      doc.frames.push(f);
+    }
+    // Replace the app's state with a single in-memory "share" doc.
+    store = { active: bundle.name || "Shared", docs: { [bundle.name || "Shared"]: doc } };
+    const totalDur = doc.frames.reduce((s, f) => s + (f.duration || 0), 0);
+    document.body.innerHTML = `
+      <div class="share-view">
+        <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
+        <h1>${escapeHtml(bundle.name || "Untitled")}</h1>
+        <div class="meta">${doc.frames.length} FRAME${doc.frames.length === 1 ? "" : "S"} · ${totalDur.toFixed(1)}S</div>
+        <button class="btn primary play-cta" id="sharePlayBtn">▶ Play</button>
+        <div class="footer">Made with <a href="${location.origin}${location.pathname}" target="_blank">storyboard</a></div>
+      </div>
+      <div class="player" id="player" style="display:none">
+        <div class="stage">
+          <div class="img-stage" id="playerImgStage"><video id="playerVideo" muted loop playsinline></video></div>
+          <div class="frameno" id="playerFrameNo"></div>
+          <button class="btn close" id="closeBtn">Close ✕</button>
+          <div class="description" id="playerDesc"></div>
+          <div class="subtitle" id="playerSub"></div>
+          <audio id="playerAudio"></audio>
+          <audio id="playerMusic" loop></audio>
+        </div>
+        <div class="progress"><div class="bar" id="progressBar"></div></div>
+        <div class="controls">
+          <button class="btn" id="prevBtn">⏮ Prev</button>
+          <button class="btn primary" id="playPauseBtn">⏸ Pause</button>
+          <button class="btn" id="nextBtn">Next ⏭</button>
+          <div class="time" id="timeReadout">0.0s / 0.0s</div>
+        </div>
+      </div>`;
+    // The DOM has been replaced; the IIFE's player references are stale.
+    // Reload them by reloading the page logic via a small bootstrap.
+    bootShareModePlayer();
+  }
+
+  function bootShareModePlayer() {
+    const playerEl = document.getElementById("player");
+    const playerDesc = document.getElementById("playerDesc");
+    const playerSub = document.getElementById("playerSub");
+    const playerFrameNo = document.getElementById("playerFrameNo");
+    const playerImgStage = document.getElementById("playerImgStage");
+    const playerAudio = document.getElementById("playerAudio");
+    const playerMusic = document.getElementById("playerMusic");
+    const playerVideo = document.getElementById("playerVideo");
+    const progressBar = document.getElementById("progressBar");
+    const timeReadout = document.getElementById("timeReadout");
+    const playPauseBtn = document.getElementById("playPauseBtn");
+    let st = { playing: false, idx: 0, startedAt: 0, elapsedInFrame: 0, rafId: null };
+    const frames = () => activeDoc().frames;
+    const totalLength = () => frames().reduce((s,f)=>s+(f.duration||0),0);
+    const elapsedBeforeIdx = (idx) => { let s=0; for (let i=0;i<idx;i++) s+=frames()[i].duration||0; return s; };
+    async function showFrame(i) {
+      const f = frames()[i]; if (!f) return;
+      const type = f.imageKey ? mediaTypeFor(f, f.imageKey) : "";
+      const isVid = isVideoType(type);
+      if (f.imageKey) {
+        const url = await blobUrl(f.imageKey);
+        if (isVid) {
+          playerImgStage.style.backgroundImage = "";
+          playerImgStage.classList.add("has-video");
+          if (url) { playerVideo.src = url; playerVideo.currentTime = 0; playerVideo.play().catch(()=>{}); }
+        } else {
+          playerImgStage.classList.remove("has-video");
+          playerVideo.pause(); playerVideo.removeAttribute("src");
+          if (url) playerImgStage.style.backgroundImage = `url("${url}")`;
+        }
+        playerDesc.classList.remove("fallback"); playerDesc.style.display = "none";
+      } else {
+        playerImgStage.style.backgroundImage = "";
+        playerImgStage.classList.remove("has-video");
+        playerVideo.pause(); playerVideo.removeAttribute("src");
+        playerDesc.classList.add("fallback");
+        playerDesc.textContent = f.description || "(no description)";
+        playerDesc.style.display = "";
+      }
+      playerSub.textContent = f.subtitle || "";
+      playerSub.style.display = f.subtitle ? "" : "none";
+      playerFrameNo.textContent = `FRAME ${i+1} / ${frames().length}`;
+      if (f.audioKey) {
+        const url = await blobUrl(f.audioKey);
+        playerAudio.src = url; playerAudio.currentTime = 0;
+        if (st.playing) playerAudio.play().catch(()=>{});
+      } else { playerAudio.removeAttribute("src"); }
+    }
+    async function start() {
+      if (frames().length === 0) return;
+      playerEl.style.display = "flex";
+      st = { playing: true, idx: 0, startedAt: performance.now(), elapsedInFrame: 0, rafId: null };
+      const doc = activeDoc();
+      if (doc.musicKey) {
+        const url = await blobUrl(doc.musicKey);
+        playerMusic.src = url; playerMusic.volume = 0.45;
+        playerMusic.currentTime = 0; playerMusic.play().catch(()=>{});
+      } else { playerMusic.removeAttribute("src"); }
+      showFrame(0); playPauseBtn.textContent = "⏸ Pause"; tick();
+    }
+    function stop() {
+      st.playing = false; cancelAnimationFrame(st.rafId);
+      playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
+      playerEl.style.display = "none";
+    }
+    function pause() {
+      if (!st.playing) return;
+      st.elapsedInFrame += (performance.now() - st.startedAt) / 1000;
+      st.playing = false; cancelAnimationFrame(st.rafId);
+      playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
+      playPauseBtn.textContent = "▶ Play";
+    }
+    function resume() {
+      if (st.playing) return;
+      st.playing = true; st.startedAt = performance.now();
+      if (playerAudio.src) playerAudio.play().catch(()=>{});
+      if (playerMusic.src) playerMusic.play().catch(()=>{});
+      if (playerVideo.src) playerVideo.play().catch(()=>{});
+      playPauseBtn.textContent = "⏸ Pause"; tick();
+    }
+    function gotoFrame(i) {
+      if (i < 0 || i >= frames().length) return;
+      st.idx = i; st.elapsedInFrame = 0; st.startedAt = performance.now();
+      showFrame(i);
+    }
+    function tick() {
+      if (!st.playing) return;
+      const f = frames()[st.idx];
+      const hasAudio = !!(f.audioKey && playerAudio.src && isFinite(playerAudio.duration) && playerAudio.duration > 0);
+      let inFrame, frameDur;
+      if (hasAudio) { inFrame = playerAudio.currentTime; frameDur = playerAudio.duration; }
+      else { inFrame = st.elapsedInFrame + (performance.now() - st.startedAt) / 1000; frameDur = f.duration; }
+      const total = totalLength();
+      const overall = elapsedBeforeIdx(st.idx) + Math.min(inFrame, frameDur);
+      progressBar.style.width = `${(overall/total)*100}%`;
+      timeReadout.textContent = `${overall.toFixed(1)}s / ${total.toFixed(1)}s`;
+      if (inFrame >= frameDur) {
+        if (st.idx >= frames().length - 1) {
+          progressBar.style.width = "100%"; st.playing = false;
+          playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
+          playPauseBtn.textContent = "↻ Replay"; return;
+        }
+        st.idx += 1; st.elapsedInFrame = 0; st.startedAt = performance.now();
+        showFrame(st.idx);
+      }
+      st.rafId = requestAnimationFrame(tick);
+    }
+    document.getElementById("sharePlayBtn").addEventListener("click", start);
+    document.getElementById("closeBtn").addEventListener("click", stop);
+    document.getElementById("prevBtn").addEventListener("click", () => gotoFrame(st.idx - 1));
+    document.getElementById("nextBtn").addEventListener("click", () => gotoFrame(st.idx + 1));
+    playPauseBtn.addEventListener("click", () => {
+      if (playPauseBtn.textContent.startsWith("↻")) { start(); return; }
+      st.playing ? pause() : resume();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (playerEl.style.display === "none") return;
+      if (e.key === "Escape") stop();
+      if (e.key === " ") { e.preventDefault(); playPauseBtn.click(); }
+      if (e.key === "ArrowRight") gotoFrame(st.idx + 1);
+      if (e.key === "ArrowLeft") gotoFrame(st.idx - 1);
+    });
+  }
+
   // --- MP4 export ---
   function loadImage(src) {
     return new Promise((resolve, reject) => {
@@ -2122,6 +2537,11 @@
 
   // --- init ---
   loadSettings();
+  const shareSlug = new URLSearchParams(location.search).get("share");
+  if (shareSlug) {
+    enterShareMode(shareSlug);
+    return; // skip editor setup
+  }
   if (!load() || Object.keys(store.docs).length === 0) {
     store.docs["Untitled"] = blankDoc();
     store.active = "Untitled";
