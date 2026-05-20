@@ -468,13 +468,67 @@
     const count = Math.round(totalSec / frameSec);
     return {
       totalSec, frameSec,
-      music: "", musicPrompt: "",
+      musicKey: "", musicPrompt: "",
       frames: Array.from({length: count}, () => makeFrame(frameSec))
     };
   }
   function makeFrame(duration) {
-    return { description:"", subtitle:"", duration, image:"", audio:"", wave:[] };
+    return { description:"", subtitle:"", duration, imageKey:"", audioKey:"", wave:[] };
   }
+
+  // --- IndexedDB for binary blobs ---
+  let _dbPromise = null;
+  function db() {
+    if (_dbPromise) return _dbPromise;
+    _dbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open("storyboard-assets", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("blobs");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return _dbPromise;
+  }
+  async function idbPut(key, blob) {
+    const d = await db();
+    return new Promise((resolve, reject) => {
+      const tx = d.transaction("blobs", "readwrite");
+      tx.objectStore("blobs").put(blob, key);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  async function idbGet(key) {
+    if (!key) return null;
+    const d = await db();
+    return new Promise((resolve, reject) => {
+      const tx = d.transaction("blobs", "readonly");
+      const req = tx.objectStore("blobs").get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idbDel(key) {
+    if (!key) return;
+    const d = await db();
+    return new Promise((resolve, reject) => {
+      const tx = d.transaction("blobs", "readwrite");
+      tx.objectStore("blobs").delete(key);
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  const _blobUrls = new Map();
+  async function blobUrl(key) {
+    if (!key) return "";
+    if (_blobUrls.has(key)) return _blobUrls.get(key);
+    const blob = await idbGet(key);
+    if (!blob) return "";
+    const url = URL.createObjectURL(blob);
+    _blobUrls.set(key, url);
+    return url;
+  }
+  function dataUrlToBlob(dataUrl) { return fetch(dataUrl).then(r => r.blob()); }
+  function newKey(prefix) { return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}`; }
   function uniqueName(base) {
     if (!store.docs[base]) return base;
     let i = 2;
@@ -504,11 +558,11 @@
           store = data;
           for (const k of Object.keys(store.docs)) {
             const d = store.docs[k];
-            if (d.music == null) d.music = "";
+            if (d.musicKey == null) d.musicKey = "";
             if (d.musicPrompt == null) d.musicPrompt = "";
             for (const f of d.frames) {
-              if (f.image == null) f.image = "";
-              if (f.audio == null) f.audio = "";
+              if (f.imageKey == null) f.imageKey = "";
+              if (f.audioKey == null) f.audioKey = "";
               if (f.wave == null) f.wave = [];
             }
           }
@@ -517,6 +571,43 @@
       }
     } catch {}
     return false;
+  }
+
+  async function migrateInlineToIdb() {
+    let changed = false;
+    for (const docName of Object.keys(store.docs)) {
+      const d = store.docs[docName];
+      if (d.music && typeof d.music === "string" && d.music.startsWith("data:")) {
+        try {
+          const blob = await dataUrlToBlob(d.music);
+          const key = newKey("music");
+          await idbPut(key, blob);
+          d.musicKey = key;
+        } catch (e) { console.warn("music migration failed", e); }
+        delete d.music; changed = true;
+      }
+      for (const f of d.frames) {
+        if (f.image && typeof f.image === "string" && f.image.startsWith("data:")) {
+          try {
+            const blob = await dataUrlToBlob(f.image);
+            const key = newKey("img");
+            await idbPut(key, blob);
+            f.imageKey = key;
+          } catch (e) { console.warn("image migration failed", e); }
+          delete f.image; changed = true;
+        }
+        if (f.audio && typeof f.audio === "string" && f.audio.startsWith("data:")) {
+          try {
+            const blob = await dataUrlToBlob(f.audio);
+            const key = newKey("audio");
+            await idbPut(key, blob);
+            f.audioKey = key;
+          } catch (e) { console.warn("audio migration failed", e); }
+          delete f.audio; changed = true;
+        }
+      }
+    }
+    if (changed) save();
   }
 
   // --- helpers ---
@@ -535,7 +626,7 @@
       r.readAsDataURL(blob);
     });
   }
-  async function urlToCompressedDataUrl(url, maxWidth = 1280, quality = 0.85) {
+  async function urlToCompressedBlob(url, maxWidth = 1280, quality = 0.85) {
     const res = await fetch(url);
     const blob = await res.blob();
     const img = new Image();
@@ -548,7 +639,7 @@
     canvas.width = w; canvas.height = h;
     canvas.getContext("2d").drawImage(img, 0, 0, w, h);
     URL.revokeObjectURL(objUrl);
-    return canvas.toDataURL("image/jpeg", quality);
+    return new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", quality));
   }
   async function computeWaveform(blob, bins = 96) {
     const buf = await blob.arrayBuffer();
@@ -617,12 +708,11 @@
     const mc = document.getElementById("musicControls");
     const mw = document.getElementById("musicWave");
     mw.innerHTML = "";
-    if (doc.music) {
+    if (doc.musicKey) {
       const c = document.createElement("canvas");
       mw.appendChild(c);
       mc.style.display = "flex";
-      // Quickly compute a waveform from the stored audio
-      fetch(doc.music).then(r => r.blob()).then(b => computeWaveform(b, 200)).then(p => drawWaveform(c, p)).catch(()=>{});
+      idbGet(doc.musicKey).then(b => b && computeWaveform(b, 200)).then(p => p && drawWaveform(c, p)).catch(()=>{});
     } else {
       const ph = document.createElement("div");
       ph.className = "placeholder";
@@ -633,10 +723,16 @@
   }
 
   function frameImageHtml(f) {
-    if (!f.image) {
+    if (!f.imageKey) {
       return `<div class="placeholder">Write a description, then ⚡ Generate.<br><small>Cinematic 16:9 still, Flux Pro 1.1</small></div>`;
     }
-    return `<img src="${f.image}" alt="" /><div class="corner"><button data-action="regen-image">↻</button><button data-action="clear-image">×</button></div>`;
+    return `<img alt="" data-key="${f.imageKey}" /><div class="corner"><button data-action="regen-image">↻</button><button data-action="clear-image">×</button></div>`;
+  }
+  function hydrateImages(root) {
+    root.querySelectorAll('img[data-key]').forEach(img => {
+      const key = img.dataset.key;
+      blobUrl(key).then(url => { if (url) img.src = url; });
+    });
   }
 
   function renderEditor() {
@@ -673,7 +769,7 @@
               <button class="btn tiny" data-action="gen-voice" data-i="${i}">⚡ Generate</button>
             </div>
             <div class="wave-preview" data-wave="${i}"><canvas></canvas></div>
-            <div class="wave-controls" data-wavectl="${i}" style="display:${f.audio ? "flex" : "none"}">
+            <div class="wave-controls" data-wavectl="${i}" style="display:${f.audioKey ? "flex" : "none"}">
               <button class="btn tiny" data-action="play-audio" data-i="${i}">▶ Preview</button>
               <button class="btn tiny" data-action="clear-audio" data-i="${i}">Clear</button>
             </div>
@@ -699,6 +795,7 @@
     summaryRight.textContent = `${total}s total`;
     document.getElementById("totalSec").value = doc.totalSec;
     document.getElementById("frameSec").value = doc.frameSec;
+    hydrateImages(framesEl);
   }
 
   // --- event wiring ---
@@ -732,18 +829,21 @@
     } else if (action === "gen-image") {
       await handleGenerateImage(i, btn);
     } else if (action === "regen-image") {
-      doc.frames[i].image = "";
+      if (doc.frames[i].imageKey) { idbDel(doc.frames[i].imageKey).catch(()=>{}); doc.frames[i].imageKey = ""; }
       const innerBtn = framesEl.querySelector(`[data-action="gen-image"][data-i="${i}"]`);
       await handleGenerateImage(i, innerBtn);
     } else if (action === "clear-image") {
-      doc.frames[i].image = ""; save(); renderEditor();
+      if (doc.frames[i].imageKey) idbDel(doc.frames[i].imageKey).catch(()=>{});
+      doc.frames[i].imageKey = ""; save(); renderEditor();
     } else if (action === "gen-voice") {
       await handleGenerateVoice(i, btn);
     } else if (action === "play-audio") {
-      const f = doc.frames[i]; if (!f.audio) return;
-      const a = document.getElementById("prevAudio"); a.src = f.audio; a.play();
+      const f = doc.frames[i]; if (!f.audioKey) return;
+      const url = await blobUrl(f.audioKey);
+      const a = document.getElementById("prevAudio"); a.src = url; a.play();
     } else if (action === "clear-audio") {
-      doc.frames[i].audio = ""; doc.frames[i].wave = [];
+      if (doc.frames[i].audioKey) idbDel(doc.frames[i].audioKey).catch(()=>{});
+      doc.frames[i].audioKey = ""; doc.frames[i].wave = [];
       save(); renderEditor();
     }
   });
@@ -810,7 +910,10 @@
     try {
       const lengthMs = Math.max(10000, Math.min(300000, doc.frames.reduce((s,f)=>s+f.duration,0) * 1000));
       const blob = await callElevenLabsMusic(prompt, lengthMs);
-      doc.music = await blobToDataUrl(blob);
+      if (doc.musicKey) idbDel(doc.musicKey).catch(()=>{});
+      const key = newKey("music");
+      await idbPut(key, blob);
+      doc.musicKey = key;
       doc.musicPrompt = prompt;
       save(); renderMusic();
     } catch (e) {
@@ -833,12 +936,15 @@
     } catch (e) { alert("Suggest failed: " + e.message); }
     finally { btn.disabled = false; }
   });
-  document.getElementById("previewMusic").addEventListener("click", () => {
-    const doc = activeDoc(); if (!doc.music) return;
-    const a = document.getElementById("prevAudio"); a.src = doc.music; a.play();
+  document.getElementById("previewMusic").addEventListener("click", async () => {
+    const doc = activeDoc(); if (!doc.musicKey) return;
+    const url = await blobUrl(doc.musicKey);
+    const a = document.getElementById("prevAudio"); a.src = url; a.play();
   });
   document.getElementById("clearMusic").addEventListener("click", () => {
-    const doc = activeDoc(); doc.music = ""; save(); renderMusic();
+    const doc = activeDoc();
+    if (doc.musicKey) idbDel(doc.musicKey).catch(()=>{});
+    doc.musicKey = ""; save(); renderMusic();
   });
 
   // --- modal helpers ---
@@ -1026,9 +1132,9 @@ Constraints:
       description: String(f.description||""),
       subtitle: String(f.subtitle||""),
       duration: frameSec,
-      image:"", audio:"", wave:[]
+      imageKey:"", audioKey:"", wave:[]
     }));
-    return { totalSec, frameSec, music:"", musicPrompt:"", frames: parsed.frames };
+    return { totalSec, frameSec, musicKey:"", musicPrompt:"", frames: parsed.frames };
   }
   function applyGeneratedStoryboard(doc, mode, sourceName) {
     if (mode === "new") {
@@ -1141,9 +1247,13 @@ Constraints:
     preview.classList.add("loading");
     try {
       const imgUrl = await callBflFlux(f.description);
-      const dataUrl = await urlToCompressedDataUrl(imgUrl, 1280, 0.85);
-      f.image = dataUrl; save();
+      const blob = await urlToCompressedBlob(imgUrl, 1280, 0.85);
+      if (f.imageKey) idbDel(f.imageKey).catch(()=>{});
+      const key = newKey("img");
+      await idbPut(key, blob);
+      f.imageKey = key; save();
       preview.innerHTML = frameImageHtml(f);
+      hydrateImages(preview);
     } catch (e) {
       console.error(e); alert("Image generation failed: " + e.message);
     } finally {
@@ -1161,9 +1271,11 @@ Constraints:
     preview.classList.add("loading");
     try {
       const blob = await callElevenLabs(f.subtitle);
-      const dataUrl = await blobToDataUrl(blob);
       const peaks = await computeWaveform(blob, 96);
-      f.audio = dataUrl; f.wave = peaks;
+      if (f.audioKey) idbDel(f.audioKey).catch(()=>{});
+      const key = newKey("audio");
+      await idbPut(key, blob);
+      f.audioKey = key; f.wave = peaks;
       save(); renderEditor();
     } catch (e) {
       console.error(e); alert("Voice generation failed: " + e.message);
@@ -1191,10 +1303,11 @@ Constraints:
   function totalLength() { return frames().reduce((s,f)=>s+f.duration, 0); }
   function elapsedBeforeIdx(idx) { let s=0; for (let i=0;i<idx;i++) s+=frames()[i].duration; return s; }
 
-  function showFrame(i) {
+  async function showFrame(i) {
     const f = frames()[i]; if (!f) return;
-    if (f.image) {
-      playerImgStage.style.backgroundImage = `url("${f.image}")`;
+    if (f.imageKey) {
+      const url = await blobUrl(f.imageKey);
+      if (url) playerImgStage.style.backgroundImage = `url("${url}")`;
       playerDesc.classList.remove("fallback");
       playerDesc.style.display = "none";
     } else {
@@ -1206,21 +1319,23 @@ Constraints:
     playerSub.textContent = f.subtitle || "";
     playerSub.style.display = f.subtitle ? "" : "none";
     playerFrameNo.textContent = `FRAME ${i+1} / ${frames().length}`;
-    if (f.audio) {
-      playerAudio.src = f.audio; playerAudio.currentTime = 0;
+    if (f.audioKey) {
+      const url = await blobUrl(f.audioKey);
+      playerAudio.src = url; playerAudio.currentTime = 0;
       if (playState.playing) playerAudio.play().catch(()=>{});
     } else {
       playerAudio.removeAttribute("src");
     }
   }
 
-  function startPlayer() {
+  async function startPlayer() {
     if (frames().length === 0) return;
     playerEl.style.display = "flex";
     playState = { playing:true, idx:0, startedAt:performance.now(), elapsedInFrame:0, rafId:null };
     const doc = activeDoc();
-    if (doc.music) {
-      playerMusic.src = doc.music; playerMusic.volume = 0.45;
+    if (doc.musicKey) {
+      const url = await blobUrl(doc.musicKey);
+      playerMusic.src = url; playerMusic.volume = 0.45;
       playerMusic.currentTime = 0; playerMusic.play().catch(()=>{});
     } else { playerMusic.removeAttribute("src"); }
     showFrame(0); playPauseBtn.textContent = "⏸ Pause"; tick();
@@ -1308,6 +1423,7 @@ Constraints:
     save();
   }
   renderAll();
+  migrateInlineToIdb().then(() => renderAll()).catch(e => console.warn("migration failed", e));
 
   // First-run: prompt for keys if none configured
   if (!settings.bflKey && !settings.elevenKey && !settings.anthropicKey) {
