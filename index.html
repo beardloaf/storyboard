@@ -130,6 +130,19 @@
     display: block; margin-bottom: 6px;
   }
 
+  .key-banner {
+    max-width: 1200px; margin: 16px auto 0; width: calc(100% - 48px);
+    background: rgba(233,185,73,.08); border: 1px solid rgba(233,185,73,.35);
+    border-radius: 10px; padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 13px; color: var(--text);
+  }
+  .key-banner .grow { flex: 1; }
+  .key-banner .missing {
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    letter-spacing: .5px;
+  }
+
   /* Editor */
   .editor { padding: 16px 24px 24px; max-width: 1200px; margin: 0 auto; width: 100%; }
   .frames { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
@@ -352,8 +365,16 @@
       <span>s</span>
       <button class="btn ghost" id="applyTiming">Reset</button>
     </div>
-    <button class="btn ghost icon" id="settingsBtn" title="API keys & voice">⚙</button>
+    <button class="btn" id="settingsBtn" title="API keys & voice">⚙ API keys</button>
     <button class="btn primary" id="playBtn">▶ Play</button>
+  </div>
+
+  <div id="keyBanner" class="key-banner" style="display:none">
+    <div class="grow">
+      <strong>Set up your API keys</strong> to generate images, voice, and music.
+      <div class="missing" id="keyBannerMissing"></div>
+    </div>
+    <button class="btn primary" id="keyBannerBtn">⚙ Open settings</button>
   </div>
 
   <div class="meta-bar">
@@ -883,7 +904,7 @@
       settings.anthropicKey = document.getElementById("setAnth").value.trim();
       settings.voiceId = document.getElementById("setVoice").value;
       settings.bflModel = document.getElementById("setBflModel").value;
-      saveSettings(); hideModal();
+      saveSettings(); hideModal(); renderKeyBanner();
     });
     document.getElementById("modalCancel").addEventListener("click", hideModal);
   }
@@ -1265,7 +1286,19 @@ Constraints:
     if (e.key === "ArrowLeft") gotoFrame(playState.idx - 1);
   });
 
-  function renderAll() { renderDocPicker(); renderMusic(); renderEditor(); }
+  function renderKeyBanner() {
+    const missing = [];
+    if (!settings.bflKey) missing.push("BFL (images)");
+    if (!settings.elevenKey) missing.push("ElevenLabs (voice + music)");
+    if (!settings.anthropicKey) missing.push("Anthropic (document import)");
+    const banner = document.getElementById("keyBanner");
+    if (missing.length === 0) { banner.style.display = "none"; return; }
+    banner.style.display = "flex";
+    document.getElementById("keyBannerMissing").textContent = "Missing: " + missing.join(" · ");
+  }
+  document.getElementById("keyBannerBtn").addEventListener("click", showSettings);
+
+  function renderAll() { renderDocPicker(); renderMusic(); renderEditor(); renderKeyBanner(); }
 
   // --- init ---
   loadSettings();
@@ -1275,6 +1308,11 @@ Constraints:
     save();
   }
   renderAll();
+
+  // First-run: prompt for keys if none configured
+  if (!settings.bflKey && !settings.elevenKey && !settings.anthropicKey) {
+    setTimeout(showSettings, 200);
+  }
 
   window.addEventListener("resize", () => {
     const doc = activeDoc();
