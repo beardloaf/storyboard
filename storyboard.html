@@ -616,8 +616,13 @@
     return String(s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   }
   function formatTime(s) {
-    const m = Math.floor(s/60); const r = s%60;
+    const rounded = Math.round(s);
+    const m = Math.floor(rounded/60); const r = rounded%60;
     return `${m}:${String(r).padStart(2,"0")}`;
+  }
+  function formatSecsShort(s) {
+    if (s % 1 === 0) return String(s);
+    return s.toFixed(2).replace(/\.?0+$/, "");
   }
   function blobToDataUrl(blob) {
     return new Promise((resolve, reject) => {
@@ -648,6 +653,7 @@
     const ac = new Ctx();
     const decoded = await ac.decodeAudioData(buf.slice(0));
     const ch = decoded.getChannelData(0);
+    const duration = decoded.duration;
     const samplesPerBin = Math.floor(ch.length / bins);
     const peaks = [];
     let globalMax = 0;
@@ -664,7 +670,7 @@
     }
     if (globalMax > 0) for (let i = 0; i < peaks.length; i++) peaks[i] /= globalMax;
     ac.close();
-    return peaks;
+    return { peaks, duration };
   }
   function drawWaveform(canvas, peaks) {
     if (!canvas) return;
@@ -733,7 +739,7 @@
         if (!b) return;
         const url = await blobUrl(doc.musicKey);
         audio.src = url;
-        const peaks = await computeWaveform(b, 200);
+        const { peaks } = await computeWaveform(b, 200);
         drawWaveform(c, peaks);
         audio.addEventListener("loadedmetadata", updateMusicTime, { once: true });
       }).catch(()=>{});
@@ -778,8 +784,8 @@
           <span>${formatTime(start)} – ${formatTime(start + f.duration)}</span>
           <span class="spacer"></span>
           <span class="dur">
-            <input type="number" min="1" step="1" data-i="${i}" data-k="duration" value="${f.duration}" title="Seconds" />
-            <span>sec</span>
+            <input type="number" min="0.1" step="0.1" data-i="${i}" data-k="duration" value="${formatSecsShort(f.duration)}" title="${f.audioKey ? 'Auto-set from voiceover length. Clear voiceover to edit.' : 'Seconds'}" ${f.audioKey ? "readonly" : ""} />
+            <span>sec${f.audioKey ? " · auto" : ""}</span>
           </span>
           <button class="remove" data-action="remove" data-i="${i}" title="Remove frame">×</button>
         </div>
@@ -887,7 +893,7 @@
     if (Number.isNaN(i) || !k) return;
     const doc = activeDoc();
     if (k === "duration") {
-      doc.frames[i].duration = Math.max(1, parseInt(t.value || "1", 10));
+      doc.frames[i].duration = Math.max(0.1, parseFloat(t.value) || 1);
       save(); renderEditor();
     } else {
       doc.frames[i][k] = t.value;
@@ -1234,11 +1240,12 @@
     preview.classList.add("loading");
     try {
       const blob = await callElevenLabs(f.subtitle);
-      const peaks = await computeWaveform(blob, 96);
+      const { peaks, duration } = await computeWaveform(blob, 96);
       if (f.audioKey) idbDel(f.audioKey).catch(()=>{});
       const key = newKey("audio");
       await idbPut(key, blob);
       f.audioKey = key; f.wave = peaks;
+      f.duration = Math.round(duration * 100) / 100;
       save(); renderEditor();
     } catch (e) {
       console.error(e); alert("Voice generation failed: " + e.message);
@@ -1330,13 +1337,21 @@
   function tick() {
     if (!playState.playing) return;
     const f = frames()[playState.idx];
-    const now = performance.now();
-    const inFrame = playState.elapsedInFrame + (now - playState.startedAt) / 1000;
+    const hasAudio = !!(f.audioKey && playerAudio.src && isFinite(playerAudio.duration) && playerAudio.duration > 0);
+    let inFrame, frameDur;
+    if (hasAudio) {
+      inFrame = playerAudio.currentTime;
+      frameDur = playerAudio.duration;
+    } else {
+      const now = performance.now();
+      inFrame = playState.elapsedInFrame + (now - playState.startedAt) / 1000;
+      frameDur = f.duration;
+    }
     const total = totalLength();
-    const overall = elapsedBeforeIdx(playState.idx) + Math.min(inFrame, f.duration);
+    const overall = elapsedBeforeIdx(playState.idx) + Math.min(inFrame, frameDur);
     progressBar.style.width = `${(overall/total)*100}%`;
     timeReadout.textContent = `${overall.toFixed(1)}s / ${total.toFixed(1)}s`;
-    if (inFrame >= f.duration) {
+    if (inFrame >= frameDur) {
       if (playState.idx >= frames().length - 1) {
         progressBar.style.width = "100%"; playState.playing = false;
         playerAudio.pause(); playerMusic.pause();
