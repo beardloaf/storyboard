@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.js"></script>
 <style>
   :root {
     --bg: #0d0d0d;
@@ -46,7 +47,6 @@
 
   .app { min-height: 100%; display: flex; flex-direction: column; }
 
-  /* Top bar */
   .topbar {
     display: flex; align-items: center; gap: 16px;
     padding: 12px 20px;
@@ -65,8 +65,7 @@
     background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
                       linear-gradient(135deg, var(--muted) 50%, transparent 50%);
     background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
-    background-size: 5px 5px;
-    background-repeat: no-repeat;
+    background-size: 5px 5px; background-repeat: no-repeat;
     -webkit-appearance: none; appearance: none;
   }
 
@@ -74,17 +73,15 @@
     display: flex; align-items: center; gap: 8px;
     color: var(--muted); font-size: 13px;
   }
-  .config input[type=number] {
-    width: 60px; padding: 6px 8px; font-size: 13px;
-  }
+  .config input[type=number] { width: 60px; padding: 6px 8px; font-size: 13px; }
+
   .btn {
     border: 1px solid var(--line);
     background: var(--panel-2);
     color: var(--text);
     padding: 8px 14px;
     border-radius: 8px;
-    cursor: pointer;
-    font-size: 13px;
+    cursor: pointer; font-size: 13px;
     white-space: nowrap;
   }
   .btn:hover { border-color: var(--line-2); }
@@ -92,20 +89,53 @@
   .btn.primary {
     background: var(--accent); color: #1a1a1a; border-color: var(--accent); font-weight: 600;
   }
-  .btn.primary:hover { filter: brightness(1.05); border-color: var(--accent); }
+  .btn.primary:hover { filter: brightness(1.05); }
   .btn.ghost { background: transparent; }
   .btn.icon { padding: 6px 10px; font-size: 13px; }
   .btn.tiny { padding: 4px 8px; font-size: 11px; font-family: var(--mono); letter-spacing: .5px; }
   .btn.danger { color: var(--danger); border-color: transparent; background: transparent; }
   .btn.danger:hover { background: rgba(255,93,93,.08); }
 
+  /* Music + import row */
+  .meta-bar {
+    max-width: 1200px; margin: 0 auto; width: 100%;
+    padding: 20px 24px 0;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px; align-items: end;
+  }
+  .meta-bar .music {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .meta-bar .music .row { display: flex; gap: 8px; align-items: center; }
+  .meta-bar .music input { font-size: 13px; }
+  .meta-bar .music .wave-mini {
+    height: 36px; background: #050505; border: 1px solid var(--line);
+    border-radius: 6px; padding: 4px; position: relative;
+  }
+  .meta-bar .music .wave-mini canvas { width: 100%; height: 100%; }
+  .meta-bar .music .wave-mini .placeholder {
+    color: #444; font-family: var(--mono); font-size: 11px;
+    display: flex; align-items: center; justify-content: center; height: 100%;
+  }
+  .meta-bar .actions-side {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  .label-mono {
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 1.6px; color: var(--muted); font-weight: 500;
+    display: block; margin-bottom: 6px;
+  }
+
   /* Editor */
-  .editor { padding: 24px; max-width: 1200px; margin: 0 auto; width: 100%; }
-  .frames { display: flex; flex-direction: column; gap: 14px; }
+  .editor { padding: 16px 24px 24px; max-width: 1200px; margin: 0 auto; width: 100%; }
+  .frames { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
 
   .frame {
-    background: var(--panel);
-    border: 1px solid var(--line);
+    background: var(--panel); border: 1px solid var(--line);
     border-radius: 12px;
     padding: 14px 16px 16px;
     display: flex; flex-direction: column;
@@ -114,34 +144,24 @@
   }
   .frame-head {
     display: flex; align-items: center; gap: 12px;
-    color: var(--muted);
-    font-family: var(--mono);
-    font-size: 12px;
+    color: var(--muted); font-family: var(--mono); font-size: 12px;
   }
   .frame-head .num { color: var(--accent); font-weight: 500; }
-  .frame-head .time { color: var(--muted); }
   .frame-head .spacer { flex: 1; }
-  .frame-head .dur {
-    display: flex; align-items: center; gap: 6px;
-    font-family: var(--mono); font-size: 12px;
-  }
+  .frame-head .dur { display: flex; align-items: center; gap: 6px; }
   .frame-head .dur input {
     width: 56px; padding: 4px 6px; font-size: 12px; text-align: center;
     font-family: var(--mono);
   }
   .frame-head .remove {
     background: transparent; border: none; color: var(--muted);
-    cursor: pointer; padding: 4px 6px; font-size: 16px; line-height: 1;
-    border-radius: 6px;
+    cursor: pointer; padding: 4px 6px; font-size: 16px; line-height: 1; border-radius: 6px;
   }
   .frame-head .remove:hover { color: var(--danger); background: rgba(255,93,93,.08); }
 
   .frame-body {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 14px;
+    display: grid; grid-template-columns: 1fr; gap: 14px;
   }
-  /* Container queries: switch to two columns only when the frame itself is wide enough that each col still gets ~360px */
   @container (min-width: 780px) {
     .frame-body { grid-template-columns: 1fr 1fr; }
   }
@@ -152,65 +172,56 @@
     margin-bottom: 8px;
   }
   .col-head label {
-    font-family: var(--mono);
-    font-size: 10px; text-transform: uppercase;
-    letter-spacing: 1.6px; color: var(--muted);
-    font-weight: 500;
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: 1.6px; color: var(--muted); font-weight: 500;
   }
-  .col-head .meta { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .8px; }
 
-  /* ASCII preview */
-  .ascii-preview {
-    background: #050505;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 10px;
-    min-height: 140px;
-    margin-bottom: 8px;
-    overflow: auto;
+  /* Image preview */
+  .img-preview {
+    background: #050505; border: 1px solid var(--line);
+    border-radius: 8px; overflow: hidden;
+    aspect-ratio: 16 / 9; margin-bottom: 8px;
     position: relative;
-  }
-  .ascii-preview pre {
-    font-family: var(--mono);
-    font-size: 9px;
-    line-height: 1.05;
-    margin: 0;
-    white-space: pre;
-    color: #aaa;
-    letter-spacing: 0;
-  }
-  .ascii-preview .placeholder {
-    color: #444; font-family: var(--mono); font-size: 11px;
     display: flex; align-items: center; justify-content: center;
-    height: 120px; text-align: center; padding: 0 16px;
   }
-  .ascii-preview.loading::after {
-    content: "generating…"; position: absolute; inset: 0;
+  .img-preview img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .img-preview .placeholder {
+    color: #444; font-family: var(--mono); font-size: 11px;
+    text-align: center; padding: 0 16px;
+  }
+  .img-preview.loading::after {
+    content: "rendering…"; position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
     color: var(--accent); font-family: var(--mono); font-size: 11px;
     background: rgba(5,5,5,.85); letter-spacing: 2px;
   }
+  .img-preview .corner {
+    position: absolute; top: 6px; right: 6px;
+    display: none; gap: 4px;
+  }
+  .img-preview:hover .corner { display: flex; }
+  .img-preview .corner button {
+    background: rgba(0,0,0,.7); border: 1px solid var(--line);
+    color: var(--text); padding: 3px 6px; border-radius: 4px;
+    font-family: var(--mono); font-size: 10px; cursor: pointer;
+  }
+  .img-preview .corner button:hover { border-color: var(--accent); }
 
   /* Waveform */
   .wave-preview {
-    background: #050505;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 10px;
-    margin-bottom: 8px;
-    height: 90px;
-    position: relative;
-    display: flex; align-items: center; justify-content: center;
+    background: #050505; border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px;
+    margin-bottom: 8px; height: 80px;
+    position: relative; display: flex; align-items: center; justify-content: center;
   }
-  .wave-preview canvas {
-    width: 100%; height: 100%;
-    display: block;
-  }
+  .wave-preview canvas { width: 100%; height: 100%; display: block; }
   .wave-preview .placeholder {
     color: #444; font-family: var(--mono); font-size: 11px;
   }
   .wave-preview.loading::after {
-    content: "generating…"; position: absolute; inset: 0;
+    content: "rendering…"; position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
     color: var(--accent); font-family: var(--mono); font-size: 11px;
     background: rgba(5,5,5,.85); letter-spacing: 2px;
@@ -219,7 +230,7 @@
     display: flex; gap: 6px; align-items: center; margin-bottom: 8px;
   }
 
-  .col textarea { min-height: 88px; flex: 1; }
+  .col textarea { min-height: 80px; flex: 1; }
 
   .add-row { display: flex; justify-content: center; padding: 18px 0 8px; }
 
@@ -233,58 +244,48 @@
   .player {
     position: fixed; inset: 0;
     background: #000;
-    display: flex; flex-direction: column;
-    z-index: 100;
+    display: flex; flex-direction: column; z-index: 100;
   }
   .player .stage {
-    flex: 1;
+    flex: 1; position: relative;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: 4vh 4vw;
-    text-align: center;
-    position: relative;
-    gap: 3vh;
-  }
-  .player .frameno {
-    position: absolute; top: 24px; left: 28px;
-    color: var(--muted); font-size: 12px;
-    font-family: var(--mono); letter-spacing: 2px;
-  }
-  .player .close { position: absolute; top: 18px; right: 18px; }
-  .player .ascii-stage {
-    flex: 1;
-    display: flex; align-items: center; justify-content: center;
-    width: 100%;
     overflow: hidden;
   }
-  .player .ascii-stage pre {
-    font-family: var(--mono);
-    font-size: clamp(8px, 1.4vw, 14px);
-    line-height: 1.05;
-    margin: 0;
-    color: #aaa;
+  .player .img-stage {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center; background-color: #000;
   }
+  .player .img-stage::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.7) 0%, transparent 35%, transparent 65%, rgba(0,0,0,.4) 100%);
+  }
+  .player .frameno {
+    position: absolute; top: 24px; left: 28px; z-index: 2;
+    color: rgba(255,255,255,.7); font-size: 12px;
+    font-family: var(--mono); letter-spacing: 2px;
+  }
+  .player .close { position: absolute; top: 18px; right: 18px; z-index: 2; }
   .player .description {
-    font-size: clamp(20px, 3vw, 36px);
-    line-height: 1.25;
-    max-width: 1100px;
-    color: var(--text);
-    font-weight: 500;
+    position: relative; z-index: 1;
+    font-size: clamp(20px, 2.8vw, 32px);
+    line-height: 1.25; max-width: 1100px; color: #fff;
+    font-weight: 500; padding: 0 4vw;
+    text-shadow: 0 2px 12px rgba(0,0,0,.7);
   }
   .player .description.fallback {
     flex: 1; display: flex; align-items: center; justify-content: center;
   }
   .player .subtitle {
+    position: absolute; bottom: 8vh; left: 0; right: 0; z-index: 2;
     font-size: clamp(18px, 2.2vw, 28px);
-    color: var(--accent);
-    font-style: italic;
-    max-width: 900px;
-    line-height: 1.4;
+    color: #fff; max-width: 1000px; margin: 0 auto;
+    line-height: 1.4; padding: 0 4vw;
+    text-shadow: 0 2px 12px rgba(0,0,0,.9);
+    font-weight: 500;
   }
-  .player .subtitle::before { content: "\201C"; opacity: .6; margin-right: .15em;}
-  .player .subtitle::after  { content: "\201D"; opacity: .6; margin-left: .15em;}
 
-  .player .progress { height: 4px; background: rgba(255,255,255,.08); position: relative; }
+  .player .progress { height: 4px; background: rgba(255,255,255,.08); position: relative; z-index: 5; }
   .player .progress .bar {
     position: absolute; left: 0; top: 0; bottom: 0;
     background: var(--accent); width: 0%;
@@ -294,7 +295,7 @@
     display: flex; justify-content: center; align-items: center; gap: 14px;
     padding: 16px;
     background: #0a0a0a;
-    border-top: 1px solid #1a1a1a;
+    border-top: 1px solid #1a1a1a; z-index: 5;
   }
   .player .controls .time {
     color: var(--muted); font-variant-numeric: tabular-nums; min-width: 110px; text-align: center;
@@ -303,14 +304,14 @@
 
   /* Modal */
   .modal-backdrop {
-    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    position: fixed; inset: 0; background: rgba(0,0,0,.7);
     display: none; align-items: center; justify-content: center; z-index: 200;
   }
   .modal-backdrop.show { display: flex; }
   .modal {
     background: var(--panel); border: 1px solid var(--line);
-    border-radius: 12px; padding: 22px; min-width: 380px; max-width: 480px;
-    width: 92%;
+    border-radius: 12px; padding: 22px; min-width: 380px; max-width: 560px;
+    width: 92%; max-height: 90vh; overflow-y: auto;
   }
   .modal h3 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
   .modal p { margin: 0 0 14px; color: var(--muted); font-size: 13px; line-height: 1.5; }
@@ -322,13 +323,14 @@
   .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
   .modal a { color: var(--accent-2); text-decoration: none; }
   .modal a:hover { text-decoration: underline; }
-
-  .status {
-    font-family: var(--mono); font-size: 10px; letter-spacing: 1px;
-    color: var(--muted); padding: 2px 6px; border-radius: 4px;
+  .dropzone {
+    border: 1.5px dashed var(--line-2); border-radius: 10px;
+    padding: 30px; text-align: center; color: var(--muted);
+    cursor: pointer; transition: border-color .15s, background .15s;
   }
-  .status.ok { color: var(--good); }
-  .status.err { color: var(--danger); }
+  .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: rgba(233,185,73,.04); }
+  .dropzone .hint { font-family: var(--mono); font-size: 11px; letter-spacing: .5px; margin-top: 4px; }
+  .file-label { font-size: 13px; color: var(--text); margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -354,6 +356,27 @@
     <button class="btn primary" id="playBtn">▶ Play</button>
   </div>
 
+  <div class="meta-bar">
+    <div class="music">
+      <span class="label-mono">Soundtrack</span>
+      <div class="row">
+        <input id="musicPrompt" type="text" placeholder="Cinematic ambient drone, slow strings, melancholic…" />
+        <button class="btn" id="suggestMusic" title="Suggest a music prompt from your storyboard">✨ Suggest</button>
+        <button class="btn primary" id="genMusic">⚡ Generate</button>
+      </div>
+      <div class="wave-mini" id="musicWave">
+        <div class="placeholder">No track yet. Write a prompt or hit Suggest, then Generate.</div>
+      </div>
+      <div class="row" id="musicControls" style="display:none">
+        <button class="btn tiny" id="previewMusic">▶ Preview</button>
+        <button class="btn tiny" id="clearMusic">Clear</button>
+      </div>
+    </div>
+    <div class="actions-side">
+      <button class="btn" id="importBtn">📄 Import from document…</button>
+    </div>
+  </div>
+
   <div class="editor">
     <div id="frames" class="frames"></div>
     <div class="add-row">
@@ -368,12 +391,13 @@
 
 <div class="player" id="player" style="display:none">
   <div class="stage">
+    <div class="img-stage" id="playerImgStage"></div>
     <div class="frameno" id="playerFrameNo"></div>
     <button class="btn close" id="closeBtn">Close ✕</button>
-    <div class="ascii-stage" id="playerAsciiStage"></div>
     <div class="description" id="playerDesc"></div>
     <div class="subtitle" id="playerSub"></div>
     <audio id="playerAudio"></audio>
+    <audio id="playerMusic" loop></audio>
   </div>
   <div class="progress"><div class="bar" id="progressBar"></div></div>
   <div class="controls">
@@ -388,10 +412,17 @@
   <div class="modal" id="modalContent"></div>
 </div>
 
+<audio id="prevAudio"></audio>
+
 <script>
 (() => {
-  const STORAGE_KEY = "storyboard.v3";
-  const SETTINGS_KEY = "storyboard.settings";
+  // --- pdf.js worker ---
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js";
+  }
+
+  const STORAGE_KEY = "storyboard.v4";
+  const SETTINGS_KEY = "storyboard.settings.v2";
 
   const ELEVEN_VOICES = [
     { id: "pNInz6obpgDQGcFmaJgB", name: "Adam — deep, smooth" },
@@ -403,18 +434,25 @@
   ];
 
   let store = { active: "Untitled", docs: {} };
-  let settings = { anthropicKey: "", elevenKey: "", voiceId: "pNInz6obpgDQGcFmaJgB" };
+  let settings = {
+    bflKey: "",
+    elevenKey: "",
+    anthropicKey: "",
+    voiceId: "pNInz6obpgDQGcFmaJgB",
+    bflModel: "flux-pro-1.1"
+  };
 
   function blankDoc() {
     const totalSec = 60, frameSec = 5;
     const count = Math.round(totalSec / frameSec);
     return {
       totalSec, frameSec,
+      music: "", musicPrompt: "",
       frames: Array.from({length: count}, () => makeFrame(frameSec))
     };
   }
   function makeFrame(duration) {
-    return { description:"", subtitle:"", duration, ascii:"", audio:"", wave:[] };
+    return { description:"", subtitle:"", duration, image:"", audio:"", wave:[] };
   }
   function uniqueName(base) {
     if (!store.docs[base]) return base;
@@ -424,10 +462,13 @@
   }
   function activeDoc() { return store.docs[store.active]; }
 
-  // -------- persistence --------
+  // --- persistence ---
   function save() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }
-    catch (e) { console.warn("storage full", e); }
+    catch (e) {
+      console.warn("storage full", e);
+      alert("Storage full — try clearing generated assets or deleting an old storyboard.");
+    }
   }
   function saveSettings() { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }
   function loadSettings() {
@@ -441,8 +482,11 @@
         if (data && data.docs && data.active && data.docs[data.active]) {
           store = data;
           for (const k of Object.keys(store.docs)) {
-            for (const f of store.docs[k].frames) {
-              if (f.ascii == null) f.ascii = "";
+            const d = store.docs[k];
+            if (d.music == null) d.music = "";
+            if (d.musicPrompt == null) d.musicPrompt = "";
+            for (const f of d.frames) {
+              if (f.image == null) f.image = "";
               if (f.audio == null) f.audio = "";
               if (f.wave == null) f.wave = [];
             }
@@ -451,406 +495,17 @@
         }
       }
     } catch {}
-    try {
-      const old = localStorage.getItem("storyboard.v2");
-      if (old) {
-        const d = JSON.parse(old);
-        if (d && d.docs && d.active) {
-          store = d;
-          for (const k of Object.keys(store.docs)) {
-            for (const f of store.docs[k].frames) {
-              f.ascii = ""; f.audio = ""; f.wave = [];
-            }
-          }
-          save();
-          return true;
-        }
-      }
-    } catch {}
     return false;
   }
 
-  // -------- editor render --------
-  const framesEl = document.getElementById("frames");
-  const summaryLeft = document.getElementById("summaryLeft");
-  const summaryRight = document.getElementById("summaryRight");
-  const docSelect = document.getElementById("docSelect");
-
+  // --- helpers ---
+  function escapeHtml(s) {
+    return String(s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
   function formatTime(s) {
     const m = Math.floor(s/60); const r = s%60;
     return `${m}:${String(r).padStart(2,"0")}`;
   }
-  function escapeHtml(s) {
-    return s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  }
-  function sanitizeAsciiHtml(s) {
-    // Allow only <span style="color:..."> and </span>, plus <br>
-    return s.replace(/<(?!\/?span(?:\s+style="color:\s*#?[a-zA-Z0-9(),.\s%]*"\s*)?>|br\s*\/?>)[^>]*>/g, "");
-  }
-
-  function renderDocPicker() {
-    docSelect.innerHTML = "";
-    Object.keys(store.docs).sort().forEach(name => {
-      const opt = document.createElement("option");
-      opt.value = name; opt.textContent = name;
-      if (name === store.active) opt.selected = true;
-      docSelect.appendChild(opt);
-    });
-  }
-
-  function frameAsciiHtml(f) {
-    if (!f.ascii) {
-      return `<div class="placeholder">Type a description, then click <strong>Generate</strong> to see ASCII art.</div>`;
-    }
-    return `<pre>${sanitizeAsciiHtml(f.ascii)}</pre>`;
-  }
-
-  function renderEditor() {
-    const doc = activeDoc();
-    framesEl.innerHTML = "";
-    let t = 0;
-    doc.frames.forEach((f, i) => {
-      const start = t; t += f.duration;
-      const row = document.createElement("div");
-      row.className = "frame";
-      row.innerHTML = `
-        <div class="frame-head">
-          <span class="num">#${String(i+1).padStart(2,"0")}</span>
-          <span class="time">${formatTime(start)} – ${formatTime(start + f.duration)}</span>
-          <span class="spacer"></span>
-          <span class="dur">
-            <input type="number" min="1" step="1" data-i="${i}" data-k="duration" value="${f.duration}" title="Seconds" />
-            <span>sec</span>
-          </span>
-          <button class="remove" data-action="remove" data-i="${i}" title="Remove frame">×</button>
-        </div>
-        <div class="frame-body">
-          <div class="col">
-            <div class="col-head">
-              <label>What you see</label>
-              <button class="btn tiny" data-action="gen-ascii" data-i="${i}">⚡ Generate</button>
-            </div>
-            <div class="ascii-preview" data-ascii="${i}">${frameAsciiHtml(f)}</div>
-            <textarea data-i="${i}" data-k="description" placeholder="A wide shot of an empty diner at dusk, neon humming…"></textarea>
-          </div>
-          <div class="col">
-            <div class="col-head">
-              <label>What you hear</label>
-              <button class="btn tiny" data-action="gen-voice" data-i="${i}">⚡ Generate</button>
-            </div>
-            <div class="wave-preview" data-wave="${i}">
-              <canvas></canvas>
-            </div>
-            <div class="wave-controls" data-wavectl="${i}" style="display:${f.audio ? "flex" : "none"}">
-              <button class="btn tiny" data-action="play-audio" data-i="${i}">▶ Preview</button>
-              <button class="btn tiny" data-action="clear-audio" data-i="${i}">Clear</button>
-            </div>
-            <textarea data-i="${i}" data-k="subtitle" placeholder="Some places remember you, even when no one's there."></textarea>
-          </div>
-        </div>
-      `;
-      row.querySelector('[data-k="description"]').value = f.description;
-      row.querySelector('[data-k="subtitle"]').value = f.subtitle;
-      framesEl.appendChild(row);
-
-      // Draw waveform if present
-      const canvas = row.querySelector(`[data-wave="${i}"] canvas`);
-      drawWaveform(canvas, f.wave);
-      if (!f.wave || f.wave.length === 0) {
-        canvas.style.display = "none";
-        const ph = document.createElement("div");
-        ph.className = "placeholder";
-        ph.textContent = "Type voiceover, then Generate to hear and see waveform.";
-        row.querySelector(`[data-wave="${i}"]`).appendChild(ph);
-      }
-    });
-
-    const total = doc.frames.reduce((s,f)=>s+f.duration, 0);
-    summaryLeft.textContent = `${doc.frames.length} frame${doc.frames.length===1?"":"s"} · ${store.active}`;
-    summaryRight.textContent = `${total}s total`;
-
-    document.getElementById("totalSec").value = doc.totalSec;
-    document.getElementById("frameSec").value = doc.frameSec;
-  }
-
-  function drawWaveform(canvas, peaks) {
-    if (!canvas) return;
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width === 0) { requestAnimationFrame(() => drawWaveform(canvas, peaks)); return; }
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    const ctx = canvas.getContext("2d");
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, rect.width, rect.height);
-    if (!peaks || peaks.length === 0) return;
-    const mid = rect.height / 2;
-    const barWidth = rect.width / peaks.length;
-    const barPad = Math.max(0.5, barWidth * 0.25);
-    ctx.fillStyle = "#e9b949";
-    peaks.forEach((p, i) => {
-      const h = Math.max(1, p * (rect.height - 4));
-      ctx.fillRect(i * barWidth + barPad/2, mid - h/2, Math.max(1, barWidth - barPad), h);
-    });
-  }
-
-  framesEl.addEventListener("input", e => {
-    const t = e.target;
-    const i = +t.dataset.i; const k = t.dataset.k;
-    if (Number.isNaN(i) || !k) return;
-    const doc = activeDoc();
-    if (k === "duration") {
-      doc.frames[i].duration = Math.max(1, parseInt(t.value || "1", 10));
-      save(); renderEditor();
-    } else {
-      doc.frames[i][k] = t.value;
-      save();
-    }
-  });
-
-  framesEl.addEventListener("click", async e => {
-    const btn = e.target.closest("[data-action]");
-    if (!btn) return;
-    const i = +btn.dataset.i;
-    const doc = activeDoc();
-    const action = btn.dataset.action;
-    if (action === "remove") {
-      doc.frames.splice(i, 1);
-      if (doc.frames.length === 0) doc.frames.push(makeFrame(doc.frameSec));
-      save(); renderEditor();
-    } else if (action === "gen-ascii") {
-      await handleGenerateAscii(i, btn);
-    } else if (action === "gen-voice") {
-      await handleGenerateVoice(i, btn);
-    } else if (action === "play-audio") {
-      const f = doc.frames[i];
-      if (!f.audio) return;
-      const a = new Audio(f.audio);
-      a.play();
-    } else if (action === "clear-audio") {
-      doc.frames[i].audio = ""; doc.frames[i].wave = [];
-      save(); renderEditor();
-    }
-  });
-
-  document.getElementById("addFrame").addEventListener("click", () => {
-    const doc = activeDoc();
-    doc.frames.push(makeFrame(doc.frameSec));
-    save(); renderEditor();
-  });
-  document.getElementById("applyTiming").addEventListener("click", () => {
-    const doc = activeDoc();
-    const newTotal = Math.max(1, parseInt(document.getElementById("totalSec").value||"60",10));
-    const newFrame = Math.max(1, parseInt(document.getElementById("frameSec").value||"5",10));
-    const count = Math.max(1, Math.round(newTotal / newFrame));
-    if (!confirm(`Reset "${store.active}" to ${count} blank frames of ${newFrame}s each? This clears generated assets.`)) return;
-    doc.totalSec = newTotal; doc.frameSec = newFrame;
-    doc.frames = Array.from({length: count}, () => makeFrame(newFrame));
-    save(); renderEditor();
-  });
-  document.getElementById("totalSec").addEventListener("change", e => {
-    activeDoc().totalSec = Math.max(1, parseInt(e.target.value||"60",10)); save();
-  });
-  document.getElementById("frameSec").addEventListener("change", e => {
-    activeDoc().frameSec = Math.max(1, parseInt(e.target.value||"5",10)); save();
-  });
-
-  docSelect.addEventListener("change", e => { store.active = e.target.value; save(); renderEditor(); });
-
-  document.getElementById("newDoc").addEventListener("click", async () => {
-    const name = await promptModal("New storyboard", "Name", "");
-    if (!name) return;
-    const finalName = uniqueName(name.trim());
-    store.docs[finalName] = blankDoc();
-    store.active = finalName;
-    save(); renderDocPicker(); renderEditor();
-  });
-  document.getElementById("renameDoc").addEventListener("click", async () => {
-    const current = store.active;
-    const name = await promptModal("Rename storyboard", `Currently: "${current}"`, current);
-    if (!name || name.trim() === current) return;
-    const finalName = uniqueName(name.trim());
-    store.docs[finalName] = store.docs[current];
-    delete store.docs[current];
-    store.active = finalName;
-    save(); renderDocPicker(); renderEditor();
-  });
-  document.getElementById("deleteDoc").addEventListener("click", () => {
-    const names = Object.keys(store.docs);
-    if (names.length <= 1) { alert("Can't delete your only storyboard."); return; }
-    if (!confirm(`Delete "${store.active}"? This can't be undone.`)) return;
-    delete store.docs[store.active];
-    store.active = Object.keys(store.docs).sort()[0];
-    save(); renderDocPicker(); renderEditor();
-  });
-
-  // -------- modal --------
-  function showModal(html) {
-    const backdrop = document.getElementById("modalBackdrop");
-    document.getElementById("modalContent").innerHTML = html;
-    backdrop.classList.add("show");
-  }
-  function hideModal() { document.getElementById("modalBackdrop").classList.remove("show"); }
-  function promptModal(title, msg, initial) {
-    return new Promise(resolve => {
-      showModal(`
-        <h3>${escapeHtml(title)}</h3>
-        <p>${escapeHtml(msg)}</p>
-        <input id="modalInput" type="text" />
-        <div class="actions">
-          <button class="btn ghost" id="modalCancel">Cancel</button>
-          <button class="btn primary" id="modalOk">OK</button>
-        </div>
-      `);
-      const input = document.getElementById("modalInput");
-      input.value = initial || "";
-      setTimeout(() => { input.focus(); input.select(); }, 10);
-      const done = (val) => { hideModal(); resolve(val); };
-      document.getElementById("modalOk").addEventListener("click", () => done(input.value));
-      document.getElementById("modalCancel").addEventListener("click", () => done(null));
-      input.addEventListener("keydown", e => {
-        if (e.key === "Enter") done(input.value);
-        if (e.key === "Escape") done(null);
-      });
-    });
-  }
-  function showSettings() {
-    const voiceOpts = ELEVEN_VOICES.map(v =>
-      `<option value="${v.id}" ${v.id===settings.voiceId?"selected":""}>${escapeHtml(v.name)}</option>`
-    ).join("");
-    showModal(`
-      <h3>API keys & voice</h3>
-      <p>Keys live in your browser only (localStorage). They're sent directly to Anthropic and ElevenLabs from this page. <a href="https://console.anthropic.com/" target="_blank">Get Anthropic key</a> · <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank">Get ElevenLabs key</a></p>
-      <label>Anthropic API key</label>
-      <input id="setAnth" type="password" placeholder="sk-ant-…" value="${escapeHtml(settings.anthropicKey)}" />
-      <label>ElevenLabs API key</label>
-      <input id="setEleven" type="password" placeholder="xi-…" value="${escapeHtml(settings.elevenKey)}" />
-      <label>Voice</label>
-      <select id="setVoice">${voiceOpts}</select>
-      <div class="actions">
-        <button class="btn ghost" id="modalCancel">Cancel</button>
-        <button class="btn primary" id="modalOk">Save</button>
-      </div>
-    `);
-    document.getElementById("modalOk").addEventListener("click", () => {
-      settings.anthropicKey = document.getElementById("setAnth").value.trim();
-      settings.elevenKey = document.getElementById("setEleven").value.trim();
-      settings.voiceId = document.getElementById("setVoice").value;
-      saveSettings(); hideModal();
-    });
-    document.getElementById("modalCancel").addEventListener("click", hideModal);
-  }
-  document.getElementById("settingsBtn").addEventListener("click", showSettings);
-
-  // -------- generation --------
-  async function handleGenerateAscii(i, btn) {
-    const doc = activeDoc();
-    const f = doc.frames[i];
-    if (!f.description.trim()) { alert("Add a description first."); return; }
-    if (!settings.anthropicKey) {
-      alert("Add your Anthropic API key in settings (⚙) first.");
-      showSettings(); return;
-    }
-    btn.disabled = true;
-    const preview = document.querySelector(`[data-ascii="${i}"]`);
-    preview.classList.add("loading");
-    try {
-      const ascii = await callClaudeForAscii(f.description);
-      f.ascii = ascii;
-      save();
-      preview.innerHTML = frameAsciiHtml(f);
-    } catch (e) {
-      console.error(e);
-      alert("Generation failed: " + e.message);
-    } finally {
-      preview.classList.remove("loading");
-      btn.disabled = false;
-    }
-  }
-
-  async function callClaudeForAscii(description) {
-    const system = `You generate newskool full-color ASCII art. Output ONLY the ASCII art — no preamble, no explanation, no code fences. Constraints:
-- 64 columns wide, 20 rows tall, monospace
-- Use block/shade characters for fills: ░ ▒ ▓ █ ▄ ▀ ▐ ▌ ▖ ▗ ▘ ▝ ▙ ▟ ▛ ▜
-- Use punctuation/letters for details only when they read clearly as a visual element
-- Wrap colored regions in <span style="color:#RRGGBB">...</span>. Use 4-8 distinct colors that fit the mood. Be liberal with color.
-- Preserve exact whitespace; do NOT use tabs.
-- Output should be valid HTML that renders as a single block. No <pre>, no <code>, no other tags.`;
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-        "x-api-key": settings.anthropicKey
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5",
-        max_tokens: 4000,
-        system,
-        messages: [{ role: "user", content: `Scene: ${description}` }]
-      })
-    });
-    if (!res.ok) {
-      const t = await res.text();
-      throw new Error(`Claude API ${res.status}: ${t.slice(0,200)}`);
-    }
-    const data = await res.json();
-    let text = data.content?.[0]?.text || "";
-    // strip code fences if model added them
-    text = text.replace(/^```[a-z]*\n?/i, "").replace(/```\s*$/, "").trim();
-    return text;
-  }
-
-  async function handleGenerateVoice(i, btn) {
-    const doc = activeDoc();
-    const f = doc.frames[i];
-    if (!f.subtitle.trim()) { alert("Add voiceover text first."); return; }
-    if (!settings.elevenKey) {
-      alert("Add your ElevenLabs API key in settings (⚙) first.");
-      showSettings(); return;
-    }
-    btn.disabled = true;
-    const preview = document.querySelector(`[data-wave="${i}"]`);
-    preview.classList.add("loading");
-    try {
-      const blob = await callElevenLabs(f.subtitle);
-      const dataUrl = await blobToDataUrl(blob);
-      const peaks = await computeWaveform(blob, 96);
-      f.audio = dataUrl; f.wave = peaks;
-      save();
-      renderEditor();
-    } catch (e) {
-      console.error(e);
-      alert("Voice generation failed: " + e.message);
-    } finally {
-      preview.classList.remove("loading");
-      btn.disabled = false;
-    }
-  }
-
-  async function callElevenLabs(text) {
-    const url = `https://api.elevenlabs.io/v1/text-to-speech/${settings.voiceId}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "xi-api-key": settings.elevenKey,
-        "Accept": "audio/mpeg"
-      },
-      body: JSON.stringify({
-        text,
-        model_id: "eleven_multilingual_v2",
-        voice_settings: { stability: 0.55, similarity_boost: 0.75, style: 0.15, use_speaker_boost: true }
-      })
-    });
-    if (!res.ok) {
-      const t = await res.text();
-      throw new Error(`ElevenLabs ${res.status}: ${t.slice(0,200)}`);
-    }
-    return res.blob();
-  }
-
   function blobToDataUrl(blob) {
     return new Promise((resolve, reject) => {
       const r = new FileReader();
@@ -859,7 +514,21 @@
       r.readAsDataURL(blob);
     });
   }
-
+  async function urlToCompressedDataUrl(url, maxWidth = 1280, quality = 0.85) {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const img = new Image();
+    const objUrl = URL.createObjectURL(blob);
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = objUrl; });
+    const ratio = img.width > maxWidth ? maxWidth / img.width : 1;
+    const w = Math.round(img.width * ratio);
+    const h = Math.round(img.height * ratio);
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(objUrl);
+    return canvas.toDataURL("image/jpeg", quality);
+  }
   async function computeWaveform(blob, bins = 96) {
     const buf = await blob.arrayBuffer();
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -884,14 +553,613 @@
     ac.close();
     return peaks;
   }
+  function drawWaveform(canvas, peaks) {
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width === 0) { requestAnimationFrame(() => drawWaveform(canvas, peaks)); return; }
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    if (!peaks || peaks.length === 0) return;
+    const mid = rect.height / 2;
+    const barWidth = rect.width / peaks.length;
+    const barPad = Math.max(0.5, barWidth * 0.25);
+    ctx.fillStyle = "#e9b949";
+    peaks.forEach((p, i) => {
+      const h = Math.max(1, p * (rect.height - 4));
+      ctx.fillRect(i * barWidth + barPad/2, mid - h/2, Math.max(1, barWidth - barPad), h);
+    });
+  }
 
-  // -------- player --------
+  // --- render ---
+  const framesEl = document.getElementById("frames");
+  const summaryLeft = document.getElementById("summaryLeft");
+  const summaryRight = document.getElementById("summaryRight");
+  const docSelect = document.getElementById("docSelect");
+
+  function renderDocPicker() {
+    docSelect.innerHTML = "";
+    Object.keys(store.docs).sort().forEach(name => {
+      const opt = document.createElement("option");
+      opt.value = name; opt.textContent = name;
+      if (name === store.active) opt.selected = true;
+      docSelect.appendChild(opt);
+    });
+  }
+
+  function renderMusic() {
+    const doc = activeDoc();
+    document.getElementById("musicPrompt").value = doc.musicPrompt || "";
+    const mc = document.getElementById("musicControls");
+    const mw = document.getElementById("musicWave");
+    mw.innerHTML = "";
+    if (doc.music) {
+      const c = document.createElement("canvas");
+      mw.appendChild(c);
+      mc.style.display = "flex";
+      // Quickly compute a waveform from the stored audio
+      fetch(doc.music).then(r => r.blob()).then(b => computeWaveform(b, 200)).then(p => drawWaveform(c, p)).catch(()=>{});
+    } else {
+      const ph = document.createElement("div");
+      ph.className = "placeholder";
+      ph.textContent = "No track yet. Write a prompt or hit Suggest, then Generate.";
+      mw.appendChild(ph);
+      mc.style.display = "none";
+    }
+  }
+
+  function frameImageHtml(f) {
+    if (!f.image) {
+      return `<div class="placeholder">Write a description, then ⚡ Generate.<br><small>Cinematic 16:9 still, Flux Pro 1.1</small></div>`;
+    }
+    return `<img src="${f.image}" alt="" /><div class="corner"><button data-action="regen-image">↻</button><button data-action="clear-image">×</button></div>`;
+  }
+
+  function renderEditor() {
+    const doc = activeDoc();
+    framesEl.innerHTML = "";
+    let t = 0;
+    doc.frames.forEach((f, i) => {
+      const start = t; t += f.duration;
+      const row = document.createElement("div");
+      row.className = "frame";
+      row.innerHTML = `
+        <div class="frame-head">
+          <span class="num">#${String(i+1).padStart(2,"0")}</span>
+          <span>${formatTime(start)} – ${formatTime(start + f.duration)}</span>
+          <span class="spacer"></span>
+          <span class="dur">
+            <input type="number" min="1" step="1" data-i="${i}" data-k="duration" value="${f.duration}" title="Seconds" />
+            <span>sec</span>
+          </span>
+          <button class="remove" data-action="remove" data-i="${i}" title="Remove frame">×</button>
+        </div>
+        <div class="frame-body">
+          <div class="col">
+            <div class="col-head">
+              <label>What you see</label>
+              <button class="btn tiny" data-action="gen-image" data-i="${i}">⚡ Generate</button>
+            </div>
+            <div class="img-preview" data-img="${i}">${frameImageHtml(f)}</div>
+            <textarea data-i="${i}" data-k="description" placeholder="A wide shot of an empty diner at dusk, neon humming…"></textarea>
+          </div>
+          <div class="col">
+            <div class="col-head">
+              <label>What you hear</label>
+              <button class="btn tiny" data-action="gen-voice" data-i="${i}">⚡ Generate</button>
+            </div>
+            <div class="wave-preview" data-wave="${i}"><canvas></canvas></div>
+            <div class="wave-controls" data-wavectl="${i}" style="display:${f.audio ? "flex" : "none"}">
+              <button class="btn tiny" data-action="play-audio" data-i="${i}">▶ Preview</button>
+              <button class="btn tiny" data-action="clear-audio" data-i="${i}">Clear</button>
+            </div>
+            <textarea data-i="${i}" data-k="subtitle" placeholder="Some places remember you, even when no one's there."></textarea>
+          </div>
+        </div>
+      `;
+      row.querySelector('[data-k="description"]').value = f.description;
+      row.querySelector('[data-k="subtitle"]').value = f.subtitle;
+      framesEl.appendChild(row);
+      const canvas = row.querySelector(`[data-wave="${i}"] canvas`);
+      drawWaveform(canvas, f.wave);
+      if (!f.wave || f.wave.length === 0) {
+        canvas.style.display = "none";
+        const ph = document.createElement("div");
+        ph.className = "placeholder";
+        ph.textContent = "Write voiceover, then ⚡ Generate.";
+        row.querySelector(`[data-wave="${i}"]`).appendChild(ph);
+      }
+    });
+    const total = doc.frames.reduce((s,f)=>s+f.duration, 0);
+    summaryLeft.textContent = `${doc.frames.length} frame${doc.frames.length===1?"":"s"} · ${store.active}`;
+    summaryRight.textContent = `${total}s total`;
+    document.getElementById("totalSec").value = doc.totalSec;
+    document.getElementById("frameSec").value = doc.frameSec;
+  }
+
+  // --- event wiring ---
+  framesEl.addEventListener("input", e => {
+    const t = e.target;
+    const i = +t.dataset.i; const k = t.dataset.k;
+    if (Number.isNaN(i) || !k) return;
+    const doc = activeDoc();
+    if (k === "duration") {
+      doc.frames[i].duration = Math.max(1, parseInt(t.value || "1", 10));
+      save(); renderEditor();
+    } else {
+      doc.frames[i][k] = t.value;
+      save();
+    }
+  });
+
+  framesEl.addEventListener("click", async e => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const wrap = btn.closest("[data-i],[data-img],[data-wave]");
+    let i = btn.dataset.i;
+    if (i == null && wrap) i = wrap.dataset.img || wrap.dataset.wave;
+    i = +i;
+    const doc = activeDoc();
+    if (action === "remove") {
+      doc.frames.splice(i, 1);
+      if (doc.frames.length === 0) doc.frames.push(makeFrame(doc.frameSec));
+      save(); renderEditor();
+    } else if (action === "gen-image") {
+      await handleGenerateImage(i, btn);
+    } else if (action === "regen-image") {
+      doc.frames[i].image = "";
+      const innerBtn = framesEl.querySelector(`[data-action="gen-image"][data-i="${i}"]`);
+      await handleGenerateImage(i, innerBtn);
+    } else if (action === "clear-image") {
+      doc.frames[i].image = ""; save(); renderEditor();
+    } else if (action === "gen-voice") {
+      await handleGenerateVoice(i, btn);
+    } else if (action === "play-audio") {
+      const f = doc.frames[i]; if (!f.audio) return;
+      const a = document.getElementById("prevAudio"); a.src = f.audio; a.play();
+    } else if (action === "clear-audio") {
+      doc.frames[i].audio = ""; doc.frames[i].wave = [];
+      save(); renderEditor();
+    }
+  });
+
+  document.getElementById("addFrame").addEventListener("click", () => {
+    const doc = activeDoc();
+    doc.frames.push(makeFrame(doc.frameSec));
+    save(); renderEditor();
+  });
+  document.getElementById("applyTiming").addEventListener("click", () => {
+    const doc = activeDoc();
+    const newTotal = Math.max(1, parseInt(document.getElementById("totalSec").value||"60",10));
+    const newFrame = Math.max(1, parseInt(document.getElementById("frameSec").value||"5",10));
+    const count = Math.max(1, Math.round(newTotal / newFrame));
+    if (!confirm(`Reset "${store.active}" to ${count} blank frames of ${newFrame}s each? This clears generated assets.`)) return;
+    doc.totalSec = newTotal; doc.frameSec = newFrame;
+    doc.frames = Array.from({length: count}, () => makeFrame(newFrame));
+    save(); renderEditor();
+  });
+  document.getElementById("totalSec").addEventListener("change", e => { activeDoc().totalSec = Math.max(1, parseInt(e.target.value||"60",10)); save(); });
+  document.getElementById("frameSec").addEventListener("change", e => { activeDoc().frameSec = Math.max(1, parseInt(e.target.value||"5",10)); save(); });
+
+  docSelect.addEventListener("change", e => { store.active = e.target.value; save(); renderAll(); });
+
+  document.getElementById("newDoc").addEventListener("click", async () => {
+    const name = await promptModal("New storyboard", "Name", "");
+    if (!name) return;
+    const finalName = uniqueName(name.trim());
+    store.docs[finalName] = blankDoc();
+    store.active = finalName;
+    save(); renderAll();
+  });
+  document.getElementById("renameDoc").addEventListener("click", async () => {
+    const current = store.active;
+    const name = await promptModal("Rename storyboard", `Currently: "${current}"`, current);
+    if (!name || name.trim() === current) return;
+    const finalName = uniqueName(name.trim());
+    store.docs[finalName] = store.docs[current];
+    delete store.docs[current];
+    store.active = finalName;
+    save(); renderAll();
+  });
+  document.getElementById("deleteDoc").addEventListener("click", () => {
+    const names = Object.keys(store.docs);
+    if (names.length <= 1) { alert("Can't delete your only storyboard."); return; }
+    if (!confirm(`Delete "${store.active}"? This can't be undone.`)) return;
+    delete store.docs[store.active];
+    store.active = Object.keys(store.docs).sort()[0];
+    save(); renderAll();
+  });
+
+  // --- music ---
+  document.getElementById("musicPrompt").addEventListener("input", e => {
+    activeDoc().musicPrompt = e.target.value; save();
+  });
+  document.getElementById("genMusic").addEventListener("click", async () => {
+    const doc = activeDoc();
+    const prompt = (document.getElementById("musicPrompt").value || "").trim();
+    if (!prompt) { alert("Write a music prompt first (or hit ✨ Suggest)."); return; }
+    if (!settings.elevenKey) { alert("Add your ElevenLabs API key in settings (⚙)."); showSettings(); return; }
+    const btn = document.getElementById("genMusic"); btn.disabled = true;
+    const mw = document.getElementById("musicWave");
+    mw.innerHTML = `<div class="placeholder" style="color:var(--accent)">composing… (this can take ~30s)</div>`;
+    try {
+      const lengthMs = Math.max(10000, Math.min(300000, doc.frames.reduce((s,f)=>s+f.duration,0) * 1000));
+      const blob = await callElevenLabsMusic(prompt, lengthMs);
+      doc.music = await blobToDataUrl(blob);
+      doc.musicPrompt = prompt;
+      save(); renderMusic();
+    } catch (e) {
+      console.error(e); alert("Music generation failed: " + e.message);
+      renderMusic();
+    } finally { btn.disabled = false; }
+  });
+  document.getElementById("suggestMusic").addEventListener("click", async () => {
+    const doc = activeDoc();
+    if (!settings.anthropicKey) { alert("Add your Anthropic API key in settings (⚙) for suggestion."); showSettings(); return; }
+    const btn = document.getElementById("suggestMusic"); btn.disabled = true;
+    try {
+      const scenes = doc.frames.map((f,i) => `${i+1}. ${f.description || "(blank)"} — VO: ${f.subtitle || "(none)"}`).join("\n");
+      const prompt = await callClaude(
+        `You write very short music prompts for AI music generation. Output ONE compact prompt (under 220 chars), specifying genre, mood, instruments, tempo. No preamble.`,
+        `Storyboard scenes:\n${scenes}\n\nProduce a single music prompt for one cohesive bed track covering the whole storyboard.`
+      );
+      document.getElementById("musicPrompt").value = prompt.trim();
+      doc.musicPrompt = prompt.trim(); save();
+    } catch (e) { alert("Suggest failed: " + e.message); }
+    finally { btn.disabled = false; }
+  });
+  document.getElementById("previewMusic").addEventListener("click", () => {
+    const doc = activeDoc(); if (!doc.music) return;
+    const a = document.getElementById("prevAudio"); a.src = doc.music; a.play();
+  });
+  document.getElementById("clearMusic").addEventListener("click", () => {
+    const doc = activeDoc(); doc.music = ""; save(); renderMusic();
+  });
+
+  // --- modal helpers ---
+  function showModal(html) {
+    const backdrop = document.getElementById("modalBackdrop");
+    document.getElementById("modalContent").innerHTML = html;
+    backdrop.classList.add("show");
+  }
+  function hideModal() { document.getElementById("modalBackdrop").classList.remove("show"); }
+  function promptModal(title, msg, initial) {
+    return new Promise(resolve => {
+      showModal(`
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(msg)}</p>
+        <input id="modalInput" type="text" />
+        <div class="actions">
+          <button class="btn ghost" id="modalCancel">Cancel</button>
+          <button class="btn primary" id="modalOk">OK</button>
+        </div>`);
+      const input = document.getElementById("modalInput");
+      input.value = initial || "";
+      setTimeout(() => { input.focus(); input.select(); }, 10);
+      const done = (val) => { hideModal(); resolve(val); };
+      document.getElementById("modalOk").addEventListener("click", () => done(input.value));
+      document.getElementById("modalCancel").addEventListener("click", () => done(null));
+      input.addEventListener("keydown", e => {
+        if (e.key === "Enter") done(input.value);
+        if (e.key === "Escape") done(null);
+      });
+    });
+  }
+  function showSettings() {
+    const voiceOpts = ELEVEN_VOICES.map(v =>
+      `<option value="${v.id}" ${v.id===settings.voiceId?"selected":""}>${escapeHtml(v.name)}</option>`
+    ).join("");
+    showModal(`
+      <h3>API keys & voice</h3>
+      <p>Keys live in your browser only (localStorage). Sent directly to each provider from this page.<br>
+        <a href="https://docs.bfl.ai/quick_start/introduction" target="_blank">Get BFL key</a> ·
+        <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank">Get ElevenLabs key</a> ·
+        <a href="https://console.anthropic.com/" target="_blank">Get Anthropic key</a>
+      </p>
+      <label>Black Forest Labs (images)</label>
+      <input id="setBfl" type="password" placeholder="bfl-…" value="${escapeHtml(settings.bflKey)}" />
+      <label>ElevenLabs (voice + music)</label>
+      <input id="setEleven" type="password" placeholder="xi-…" value="${escapeHtml(settings.elevenKey)}" />
+      <label>Anthropic (document import, suggestions)</label>
+      <input id="setAnth" type="password" placeholder="sk-ant-…" value="${escapeHtml(settings.anthropicKey)}" />
+      <label>Voice</label>
+      <select id="setVoice">${voiceOpts}</select>
+      <label>BFL model</label>
+      <select id="setBflModel">
+        <option value="flux-pro-1.1" ${settings.bflModel==="flux-pro-1.1"?"selected":""}>flux-pro-1.1 (fast)</option>
+        <option value="flux-pro-1.1-ultra" ${settings.bflModel==="flux-pro-1.1-ultra"?"selected":""}>flux-pro-1.1-ultra (higher quality)</option>
+      </select>
+      <div class="actions">
+        <button class="btn ghost" id="modalCancel">Cancel</button>
+        <button class="btn primary" id="modalOk">Save</button>
+      </div>`);
+    document.getElementById("modalOk").addEventListener("click", () => {
+      settings.bflKey = document.getElementById("setBfl").value.trim();
+      settings.elevenKey = document.getElementById("setEleven").value.trim();
+      settings.anthropicKey = document.getElementById("setAnth").value.trim();
+      settings.voiceId = document.getElementById("setVoice").value;
+      settings.bflModel = document.getElementById("setBflModel").value;
+      saveSettings(); hideModal();
+    });
+    document.getElementById("modalCancel").addEventListener("click", hideModal);
+  }
+  document.getElementById("settingsBtn").addEventListener("click", showSettings);
+
+  // --- import from document ---
+  document.getElementById("importBtn").addEventListener("click", showImportModal);
+  function showImportModal() {
+    showModal(`
+      <h3>Import from document</h3>
+      <p>Upload a .txt / .md / .pdf, or paste text. Claude will turn it into a storyboard.</p>
+      <div class="dropzone" id="dropzone">
+        <div>Drop a file here, or click to browse</div>
+        <div class="hint">.txt · .md · .pdf</div>
+        <input id="fileInput" type="file" accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf" style="display:none" />
+        <div class="file-label" id="fileLabel"></div>
+      </div>
+      <label>Or paste text</label>
+      <textarea id="pasteText" rows="6" placeholder="Paste your script, brief, or any source text…"></textarea>
+      <label>Target length (seconds)</label>
+      <input id="impTotal" type="number" min="5" step="5" value="${activeDoc().totalSec}" />
+      <label>Seconds per frame</label>
+      <input id="impFrame" type="number" min="1" step="1" value="${activeDoc().frameSec}" />
+      <label>How to use it</label>
+      <select id="impMode">
+        <option value="replace">Replace the active storyboard</option>
+        <option value="new">Create a new storyboard</option>
+      </select>
+      <div class="actions">
+        <button class="btn ghost" id="modalCancel">Cancel</button>
+        <button class="btn primary" id="modalOk">Generate</button>
+      </div>`);
+
+    let fileText = "";
+    let fileName = "";
+    const dropzone = document.getElementById("dropzone");
+    const fileInput = document.getElementById("fileInput");
+    const fileLabel = document.getElementById("fileLabel");
+    dropzone.addEventListener("click", () => fileInput.click());
+    dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("drag"); });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag"));
+    dropzone.addEventListener("drop", async e => {
+      e.preventDefault(); dropzone.classList.remove("drag");
+      const f = e.dataTransfer.files[0]; if (f) await loadFile(f);
+    });
+    fileInput.addEventListener("change", async e => {
+      const f = e.target.files[0]; if (f) await loadFile(f);
+    });
+    async function loadFile(f) {
+      fileName = f.name;
+      fileLabel.textContent = `Loading "${f.name}"…`;
+      try {
+        if (f.name.toLowerCase().endsWith(".pdf")) {
+          fileText = await readPdf(f);
+        } else {
+          fileText = await f.text();
+        }
+        fileLabel.textContent = `✓ ${f.name} · ${fileText.length.toLocaleString()} chars`;
+      } catch (err) {
+        fileLabel.textContent = `Failed: ${err.message}`;
+      }
+    }
+
+    document.getElementById("modalCancel").addEventListener("click", hideModal);
+    document.getElementById("modalOk").addEventListener("click", async () => {
+      const pasted = document.getElementById("pasteText").value.trim();
+      const text = (fileText + "\n\n" + pasted).trim();
+      if (!text) { alert("Add a file or paste some text."); return; }
+      if (!settings.anthropicKey) { alert("Add your Anthropic key in settings."); showSettings(); return; }
+      const totalSec = Math.max(5, parseInt(document.getElementById("impTotal").value||"60",10));
+      const frameSec = Math.max(1, parseInt(document.getElementById("impFrame").value||"5",10));
+      const mode = document.getElementById("impMode").value;
+      const okBtn = document.getElementById("modalOk");
+      okBtn.disabled = true; okBtn.textContent = "Generating…";
+      try {
+        const result = await generateStoryboardFromText(text, totalSec, frameSec);
+        applyGeneratedStoryboard(result, mode, fileName || "Imported");
+        hideModal();
+      } catch (e) {
+        alert("Import failed: " + e.message);
+        okBtn.disabled = false; okBtn.textContent = "Generate";
+      }
+    });
+  }
+  async function readPdf(file) {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let out = "";
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const tc = await page.getTextContent();
+      out += tc.items.map(it => it.str).join(" ") + "\n\n";
+    }
+    return out;
+  }
+  async function generateStoryboardFromText(text, totalSec, frameSec) {
+    const count = Math.max(1, Math.round(totalSec / frameSec));
+    const sys = `You convert source material into a cinematic storyboard. Output ONLY JSON, no preamble, no code fences.
+
+Schema:
+{
+  "frames": [
+    { "description": "Visual description of what is seen on screen, 1-2 sentences, concrete and cinematic, suitable for a text-to-image model. Avoid abstract or metaphorical language.",
+      "subtitle":    "Voice-over text the viewer hears (one short line). Conversational, in plain English." }
+  ]
+}
+
+Constraints:
+- Produce exactly ${count} frames.
+- Each frame represents ${frameSec} seconds.
+- The story must flow coherently across frames.
+- Descriptions are concrete visuals (subject, setting, lighting, camera). The viewer should be able to picture each.
+- Subtitles are short — typically <= ${Math.max(8, Math.round(frameSec * 2.5))} words so they fit the duration.`;
+    const userMsg = `Source material:\n${text.slice(0, 50000)}\n\nProduce the JSON now.`;
+    const raw = await callClaude(sys, userMsg, "claude-sonnet-4-6");
+    const jsonText = raw.replace(/^```(?:json)?\n?/i, "").replace(/```\s*$/, "").trim();
+    const parsed = JSON.parse(jsonText);
+    parsed.frames = parsed.frames.map(f => ({
+      description: String(f.description||""),
+      subtitle: String(f.subtitle||""),
+      duration: frameSec,
+      image:"", audio:"", wave:[]
+    }));
+    return { totalSec, frameSec, music:"", musicPrompt:"", frames: parsed.frames };
+  }
+  function applyGeneratedStoryboard(doc, mode, sourceName) {
+    if (mode === "new") {
+      const name = uniqueName(sourceName.replace(/\.[^.]+$/, ""));
+      store.docs[name] = doc; store.active = name;
+    } else {
+      store.docs[store.active] = doc;
+    }
+    save(); renderAll();
+  }
+
+  // --- API calls ---
+  async function callClaude(system, userMsg, model = "claude-haiku-4-5") {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+        "x-api-key": settings.anthropicKey
+      },
+      body: JSON.stringify({
+        model, max_tokens: 8000, system,
+        messages: [{ role: "user", content: userMsg }]
+      })
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`Claude ${res.status}: ${t.slice(0,300)}`);
+    }
+    const data = await res.json();
+    return data.content?.[0]?.text || "";
+  }
+
+  async function callBflFlux(prompt) {
+    const cinePrompt = `Cinematic film still, anamorphic widescreen, 35mm film grain, natural lighting, shallow depth of field, color graded, photorealistic, atmospheric. ${prompt}`;
+    const url = `https://api.bfl.ai/v1/${settings.bflModel}`;
+    const body = settings.bflModel.includes("ultra")
+      ? { prompt: cinePrompt, aspect_ratio: "16:9", prompt_upsampling: true, safety_tolerance: 2, output_format: "jpeg", raw: false }
+      : { prompt: cinePrompt, width: 1024, height: 576, prompt_upsampling: true, safety_tolerance: 2, output_format: "jpeg" };
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-key": settings.bflKey, "accept": "application/json" },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) { const t = await res.text(); throw new Error(`BFL ${res.status}: ${t.slice(0,300)}`); }
+    const job = await res.json();
+    const pollUrl = job.polling_url || `https://api.bfl.ai/v1/get_result?id=${job.id}`;
+    const deadline = Date.now() + 120000;
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 1200));
+      const pr = await fetch(pollUrl, { headers: { "x-key": settings.bflKey, "accept": "application/json" } });
+      if (!pr.ok) { const t = await pr.text(); throw new Error(`BFL poll ${pr.status}: ${t.slice(0,200)}`); }
+      const pj = await pr.json();
+      if (pj.status === "Ready" && pj.result && pj.result.sample) return pj.result.sample;
+      if (pj.status && /error|failed|content_moderated/i.test(pj.status)) {
+        throw new Error(`BFL: ${pj.status}${pj.details ? " — " + JSON.stringify(pj.details) : ""}`);
+      }
+    }
+    throw new Error("BFL timed out");
+  }
+
+  async function callElevenLabs(text) {
+    const url = `https://api.elevenlabs.io/v1/text-to-speech/${settings.voiceId}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "xi-api-key": settings.elevenKey, "Accept": "audio/mpeg" },
+      body: JSON.stringify({
+        text, model_id: "eleven_multilingual_v2",
+        voice_settings: { stability: 0.55, similarity_boost: 0.75, style: 0.15, use_speaker_boost: true }
+      })
+    });
+    if (!res.ok) { const t = await res.text(); throw new Error(`ElevenLabs TTS ${res.status}: ${t.slice(0,300)}`); }
+    return res.blob();
+  }
+
+  async function callElevenLabsMusic(prompt, lengthMs) {
+    // ElevenLabs Music endpoint
+    const url = `https://api.elevenlabs.io/v1/music`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "xi-api-key": settings.elevenKey, "Accept": "audio/mpeg" },
+      body: JSON.stringify({ prompt, music_length_ms: lengthMs })
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      // Fallback to legacy endpoint name if first fails
+      if (res.status === 404) {
+        const res2 = await fetch(`https://api.elevenlabs.io/v1/music/compose`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "xi-api-key": settings.elevenKey, "Accept": "audio/mpeg" },
+          body: JSON.stringify({ prompt, music_length_ms: lengthMs })
+        });
+        if (!res2.ok) { const t2 = await res2.text(); throw new Error(`ElevenLabs Music ${res2.status}: ${t2.slice(0,300)}`); }
+        return res2.blob();
+      }
+      throw new Error(`ElevenLabs Music ${res.status}: ${t.slice(0,300)}`);
+    }
+    return res.blob();
+  }
+
+  // --- frame generation handlers ---
+  async function handleGenerateImage(i, btn) {
+    const doc = activeDoc();
+    const f = doc.frames[i];
+    if (!f.description.trim()) { alert("Write a description first."); return; }
+    if (!settings.bflKey) { alert("Add your BFL API key in settings (⚙)."); showSettings(); return; }
+    if (btn) btn.disabled = true;
+    const preview = document.querySelector(`[data-img="${i}"]`);
+    preview.classList.add("loading");
+    try {
+      const imgUrl = await callBflFlux(f.description);
+      const dataUrl = await urlToCompressedDataUrl(imgUrl, 1280, 0.85);
+      f.image = dataUrl; save();
+      preview.innerHTML = frameImageHtml(f);
+    } catch (e) {
+      console.error(e); alert("Image generation failed: " + e.message);
+    } finally {
+      preview.classList.remove("loading");
+      if (btn) btn.disabled = false;
+    }
+  }
+  async function handleGenerateVoice(i, btn) {
+    const doc = activeDoc();
+    const f = doc.frames[i];
+    if (!f.subtitle.trim()) { alert("Write voiceover text first."); return; }
+    if (!settings.elevenKey) { alert("Add your ElevenLabs API key in settings (⚙)."); showSettings(); return; }
+    btn.disabled = true;
+    const preview = document.querySelector(`[data-wave="${i}"]`);
+    preview.classList.add("loading");
+    try {
+      const blob = await callElevenLabs(f.subtitle);
+      const dataUrl = await blobToDataUrl(blob);
+      const peaks = await computeWaveform(blob, 96);
+      f.audio = dataUrl; f.wave = peaks;
+      save(); renderEditor();
+    } catch (e) {
+      console.error(e); alert("Voice generation failed: " + e.message);
+    } finally {
+      preview.classList.remove("loading");
+      btn.disabled = false;
+    }
+  }
+
+  // --- player ---
   const playerEl = document.getElementById("player");
   const playerDesc = document.getElementById("playerDesc");
   const playerSub = document.getElementById("playerSub");
   const playerFrameNo = document.getElementById("playerFrameNo");
-  const playerAsciiStage = document.getElementById("playerAsciiStage");
+  const playerImgStage = document.getElementById("playerImgStage");
   const playerAudio = document.getElementById("playerAudio");
+  const playerMusic = document.getElementById("playerMusic");
   const progressBar = document.getElementById("progressBar");
   const timeReadout = document.getElementById("timeReadout");
   const playPauseBtn = document.getElementById("playPauseBtn");
@@ -904,13 +1172,12 @@
 
   function showFrame(i) {
     const f = frames()[i]; if (!f) return;
-    if (f.ascii) {
-      playerAsciiStage.innerHTML = `<pre>${sanitizeAsciiHtml(f.ascii)}</pre>`;
+    if (f.image) {
+      playerImgStage.style.backgroundImage = `url("${f.image}")`;
       playerDesc.classList.remove("fallback");
-      playerDesc.textContent = f.description || "";
-      playerDesc.style.display = f.description ? "" : "none";
+      playerDesc.style.display = "none";
     } else {
-      playerAsciiStage.innerHTML = "";
+      playerImgStage.style.backgroundImage = "";
       playerDesc.classList.add("fallback");
       playerDesc.textContent = f.description || "(no description)";
       playerDesc.style.display = "";
@@ -918,10 +1185,8 @@
     playerSub.textContent = f.subtitle || "";
     playerSub.style.display = f.subtitle ? "" : "none";
     playerFrameNo.textContent = `FRAME ${i+1} / ${frames().length}`;
-
     if (f.audio) {
-      playerAudio.src = f.audio;
-      playerAudio.currentTime = 0;
+      playerAudio.src = f.audio; playerAudio.currentTime = 0;
       if (playState.playing) playerAudio.play().catch(()=>{});
     } else {
       playerAudio.removeAttribute("src");
@@ -932,23 +1197,30 @@
     if (frames().length === 0) return;
     playerEl.style.display = "flex";
     playState = { playing:true, idx:0, startedAt:performance.now(), elapsedInFrame:0, rafId:null };
+    const doc = activeDoc();
+    if (doc.music) {
+      playerMusic.src = doc.music; playerMusic.volume = 0.45;
+      playerMusic.currentTime = 0; playerMusic.play().catch(()=>{});
+    } else { playerMusic.removeAttribute("src"); }
     showFrame(0); playPauseBtn.textContent = "⏸ Pause"; tick();
   }
   function stopPlayer() {
     playState.playing = false; cancelAnimationFrame(playState.rafId);
-    playerAudio.pause(); playerEl.style.display = "none";
+    playerAudio.pause(); playerMusic.pause();
+    playerEl.style.display = "none";
   }
   function pause() {
     if (!playState.playing) return;
     playState.elapsedInFrame += (performance.now() - playState.startedAt) / 1000;
     playState.playing = false; cancelAnimationFrame(playState.rafId);
-    playerAudio.pause();
+    playerAudio.pause(); playerMusic.pause();
     playPauseBtn.textContent = "▶ Play";
   }
   function resume() {
     if (playState.playing) return;
     playState.playing = true; playState.startedAt = performance.now();
     if (playerAudio.src) playerAudio.play().catch(()=>{});
+    if (playerMusic.src) playerMusic.play().catch(()=>{});
     playPauseBtn.textContent = "⏸ Pause"; tick();
   }
   function gotoFrame(i) {
@@ -968,7 +1240,7 @@
     if (inFrame >= f.duration) {
       if (playState.idx >= frames().length - 1) {
         progressBar.style.width = "100%"; playState.playing = false;
-        playerAudio.pause();
+        playerAudio.pause(); playerMusic.pause();
         playPauseBtn.textContent = "↻ Replay"; return;
       }
       playState.idx += 1; playState.elapsedInFrame = 0; playState.startedAt = performance.now();
@@ -993,17 +1265,17 @@
     if (e.key === "ArrowLeft") gotoFrame(playState.idx - 1);
   });
 
-  // -------- init --------
+  function renderAll() { renderDocPicker(); renderMusic(); renderEditor(); }
+
+  // --- init ---
   loadSettings();
   if (!load() || Object.keys(store.docs).length === 0) {
     store.docs["Untitled"] = blankDoc();
     store.active = "Untitled";
     save();
   }
-  renderDocPicker();
-  renderEditor();
+  renderAll();
 
-  // redraw waveforms on resize
   window.addEventListener("resize", () => {
     const doc = activeDoc();
     doc.frames.forEach((f, i) => {
