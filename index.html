@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Storyboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --panel: #161616;
+    --panel-2: #1e1e1e;
+    --line: #2a2a2a;
+    --line-2: #353535;
+    --text: #ececec;
+    --muted: #8a8a8a;
+    --accent: #e9b949;
+    --accent-2: #d9d9d9;
+    --danger: #ff5d5d;
+    --mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+  }
+  button { font-family: inherit; }
+  input, textarea, select {
+    font-family: inherit;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    outline: none;
+    width: 100%;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent-2); }
+  textarea { resize: vertical; }
+
+  .app { min-height: 100%; display: flex; flex-direction: column; }
+
+  /* Top bar */
+  .topbar {
+    display: flex; align-items: center; gap: 16px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .brand { display: flex; align-items: center; height: 22px; }
+  .brand img { max-height: 22px; display: block; }
+  .topbar .spacer { flex: 1; }
+
+  .doc-picker {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .doc-picker select {
+    width: auto; min-width: 180px; padding: 6px 28px 6px 10px; font-size: 13px;
+    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+                      linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+    -webkit-appearance: none; appearance: none;
+  }
+
+  .config {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--muted); font-size: 13px;
+  }
+  .config input[type=number] {
+    width: 60px; padding: 6px 8px; font-size: 13px;
+  }
+  .btn {
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--line-2); }
+  .btn.primary {
+    background: var(--accent);
+    color: #1a1a1a;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .btn.primary:hover { filter: brightness(1.05); border-color: var(--accent); }
+  .btn.ghost { background: transparent; }
+  .btn.icon { padding: 6px 10px; font-size: 13px; }
+  .btn.danger { color: var(--danger); border-color: transparent; background: transparent; }
+  .btn.danger:hover { background: rgba(255,93,93,.08); }
+
+  /* Editor */
+  .editor {
+    padding: 24px; max-width: 1100px; margin: 0 auto; width: 100%;
+  }
+  .frames { display: flex; flex-direction: column; gap: 14px; }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px 16px;
+    display: flex; flex-direction: column;
+    gap: 12px;
+  }
+  .frame-head {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .frame-head .num {
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .frame-head .time {
+    color: var(--muted);
+  }
+  .frame-head .spacer { flex: 1; }
+  .frame-head .dur {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 12px;
+  }
+  .frame-head .dur input {
+    width: 56px; padding: 4px 6px; font-size: 12px; text-align: center;
+    font-family: var(--mono);
+  }
+  .frame-head .remove {
+    background: transparent; border: none; color: var(--muted);
+    cursor: pointer; padding: 4px 6px; font-size: 16px; line-height: 1;
+    border-radius: 6px;
+  }
+  .frame-head .remove:hover { color: var(--danger); background: rgba(255,93,93,.08); }
+
+  .frame-body {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  }
+  .col label {
+    display: block; font-family: var(--mono);
+    font-size: 10px; text-transform: uppercase;
+    letter-spacing: 1.6px; color: var(--muted); margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .col textarea { min-height: 88px; }
+
+  .add-row {
+    display: flex; justify-content: center; padding: 18px 0 8px;
+  }
+
+  .summary {
+    color: var(--muted); font-size: 12px; padding: 8px 4px 0;
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); letter-spacing: .5px;
+  }
+
+  /* Player */
+  .player {
+    position: fixed; inset: 0;
+    background: #000;
+    display: flex; flex-direction: column;
+    z-index: 100;
+  }
+  .player .stage {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 6vh 8vw;
+    text-align: center;
+    position: relative;
+  }
+  .player .frameno {
+    position: absolute; top: 24px; left: 28px;
+    color: var(--muted); font-size: 12px;
+    font-family: var(--mono); letter-spacing: 2px;
+  }
+  .player .close {
+    position: absolute; top: 18px; right: 18px;
+  }
+  .player .description {
+    font-size: clamp(28px, 4.4vw, 56px);
+    line-height: 1.25;
+    max-width: 1100px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .player .subtitle {
+    margin-top: 6vh;
+    font-size: clamp(18px, 2.2vw, 28px);
+    color: var(--accent);
+    font-style: italic;
+    max-width: 900px;
+    line-height: 1.4;
+  }
+  .player .subtitle::before { content: "\201C"; opacity: .6; margin-right: .15em;}
+  .player .subtitle::after  { content: "\201D"; opacity: .6; margin-left: .15em;}
+
+  .player .progress {
+    height: 4px; background: rgba(255,255,255,.08);
+    position: relative;
+  }
+  .player .progress .bar {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: var(--accent);
+    width: 0%;
+    transition: width .1s linear;
+  }
+  .player .controls {
+    display: flex; justify-content: center; align-items: center; gap: 14px;
+    padding: 16px;
+    background: #0a0a0a;
+    border-top: 1px solid #1a1a1a;
+  }
+  .player .controls .time {
+    color: var(--muted); font-variant-numeric: tabular-nums; min-width: 110px; text-align: center;
+    font-family: var(--mono);
+  }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    display: none; align-items: center; justify-content: center; z-index: 200;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 20px; min-width: 340px; max-width: 420px;
+  }
+  .modal h3 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+  .modal p { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+  .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+  @media (max-width: 760px) {
+    .frame-body { grid-template-columns: 1fr; }
+    .topbar { flex-wrap: wrap; }
+    .config { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
+    <div class="doc-picker">
+      <select id="docSelect" title="Storyboard"></select>
+      <button class="btn icon" id="newDoc" title="New storyboard">+</button>
+      <button class="btn icon" id="renameDoc" title="Rename">✎</button>
+      <button class="btn icon" id="deleteDoc" title="Delete">🗑</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="config">
+      <span>Total</span>
+      <input id="totalSec" type="number" min="5" step="5" value="60" />
+      <span>s · per frame</span>
+      <input id="frameSec" type="number" min="1" step="1" value="5" />
+      <span>s</span>
+      <button class="btn ghost" id="applyTiming">Reset</button>
+    </div>
+    <button class="btn primary" id="playBtn">▶ Play</button>
+  </div>
+
+  <div class="editor">
+    <div id="frames" class="frames"></div>
+    <div class="add-row">
+      <button class="btn" id="addFrame">+ Add frame</button>
+    </div>
+    <div class="summary">
+      <div id="summaryLeft">0 frames</div>
+      <div id="summaryRight">0s total</div>
+    </div>
+  </div>
+</div>
+
+<div class="player" id="player" style="display:none">
+  <div class="stage">
+    <div class="frameno" id="playerFrameNo"></div>
+    <button class="btn close" id="closeBtn">Close ✕</button>
+    <div class="description" id="playerDesc"></div>
+    <div class="subtitle" id="playerSub"></div>
+  </div>
+  <div class="progress"><div class="bar" id="progressBar"></div></div>
+  <div class="controls">
+    <button class="btn" id="prevBtn">⏮ Prev</button>
+    <button class="btn primary" id="playPauseBtn">⏸ Pause</button>
+    <button class="btn" id="nextBtn">Next ⏭</button>
+    <div class="time" id="timeReadout">0.0s / 0.0s</div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal">
+    <h3 id="modalTitle">Name</h3>
+    <p id="modalMsg"></p>
+    <input id="modalInput" type="text" />
+    <div class="actions">
+      <button class="btn ghost" id="modalCancel">Cancel</button>
+      <button class="btn primary" id="modalOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const STORAGE_KEY = "storyboard.v2";
+
+  /**
+   * Persistent shape:
+   * { active: string, docs: { [name]: { frames, totalSec, frameSec } } }
+   */
+  let store = { active: "Untitled", docs: {} };
+
+  function blankDoc() {
+    const totalSec = 60, frameSec = 5;
+    const count = Math.round(totalSec / frameSec);
+    return {
+      totalSec, frameSec,
+      frames: Array.from({length: count}, () => ({ description:"", subtitle:"", duration: frameSec }))
+    };
+  }
+
+  function uniqueName(base) {
+    if (!store.docs[base]) return base;
+    let i = 2;
+    while (store.docs[`${base} ${i}`]) i++;
+    return `${base} ${i}`;
+  }
+
+  function activeDoc() { return store.docs[store.active]; }
+
+  // -------- persistence --------
+  function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); }
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data && data.docs && data.active && data.docs[data.active]) {
+          store = data;
+          return true;
+        }
+      }
+    } catch {}
+    // Try migrating from v1
+    try {
+      const old = localStorage.getItem("storyboard.v1");
+      if (old) {
+        const d = JSON.parse(old);
+        store.docs["Untitled"] = {
+          frames: d.frames || blankDoc().frames,
+          totalSec: d.totalSec || 60,
+          frameSec: d.frameSec || 5
+        };
+        store.active = "Untitled";
+        save();
+        return true;
+      }
+    } catch {}
+    return false;
+  }
+
+  // -------- editor render --------
+  const framesEl = document.getElementById("frames");
+  const summaryLeft = document.getElementById("summaryLeft");
+  const summaryRight = document.getElementById("summaryRight");
+  const docSelect = document.getElementById("docSelect");
+
+  function formatTime(s) {
+    const m = Math.floor(s/60);
+    const r = s%60;
+    return m > 0 ? `${m}:${String(r).padStart(2,"0")}` : `0:${String(r).padStart(2,"0")}`;
+  }
+
+  function renderDocPicker() {
+    docSelect.innerHTML = "";
+    Object.keys(store.docs).sort().forEach(name => {
+      const opt = document.createElement("option");
+      opt.value = name; opt.textContent = name;
+      if (name === store.active) opt.selected = true;
+      docSelect.appendChild(opt);
+    });
+  }
+
+  function renderEditor() {
+    const doc = activeDoc();
+    framesEl.innerHTML = "";
+    let t = 0;
+    doc.frames.forEach((f, i) => {
+      const start = t;
+      t += f.duration;
+      const row = document.createElement("div");
+      row.className = "frame";
+      row.innerHTML = `
+        <div class="frame-head">
+          <span class="num">#${String(i+1).padStart(2,"0")}</span>
+          <span class="time">${formatTime(start)} – ${formatTime(start + f.duration)}</span>
+          <span class="spacer"></span>
+          <span class="dur">
+            <input type="number" min="1" step="1" data-i="${i}" data-k="duration" value="${f.duration}" title="Seconds" />
+            <span>sec</span>
+          </span>
+          <button class="remove" data-action="remove" data-i="${i}" title="Remove frame">×</button>
+        </div>
+        <div class="frame-body">
+          <div class="col">
+            <label>What you see</label>
+            <textarea data-i="${i}" data-k="description" placeholder="A wide shot of an empty diner at dusk…"></textarea>
+          </div>
+          <div class="col">
+            <label>What you hear</label>
+            <textarea data-i="${i}" data-k="subtitle" placeholder="Some places remember you, even when no one's there."></textarea>
+          </div>
+        </div>
+      `;
+      row.querySelector('[data-k="description"]').value = f.description;
+      row.querySelector('[data-k="subtitle"]').value = f.subtitle;
+      framesEl.appendChild(row);
+    });
+
+    const total = doc.frames.reduce((s,f)=>s+f.duration, 0);
+    summaryLeft.textContent = `${doc.frames.length} frame${doc.frames.length===1?"":"s"} · ${store.active}`;
+    summaryRight.textContent = `${total}s total`;
+
+    document.getElementById("totalSec").value = doc.totalSec;
+    document.getElementById("frameSec").value = doc.frameSec;
+  }
+
+  framesEl.addEventListener("input", e => {
+    const t = e.target;
+    const i = +t.dataset.i;
+    const k = t.dataset.k;
+    if (Number.isNaN(i) || !k) return;
+    const doc = activeDoc();
+    if (k === "duration") {
+      const v = Math.max(1, parseInt(t.value || "1", 10));
+      doc.frames[i].duration = v;
+      save();
+      renderEditor();
+    } else {
+      doc.frames[i][k] = t.value;
+      save();
+    }
+  });
+
+  framesEl.addEventListener("click", e => {
+    const btn = e.target.closest("[data-action]");
+    if (!btn) return;
+    const i = +btn.dataset.i;
+    if (btn.dataset.action === "remove") {
+      const doc = activeDoc();
+      doc.frames.splice(i, 1);
+      if (doc.frames.length === 0) {
+        doc.frames.push({ description:"", subtitle:"", duration: doc.frameSec });
+      }
+      save();
+      renderEditor();
+    }
+  });
+
+  document.getElementById("addFrame").addEventListener("click", () => {
+    const doc = activeDoc();
+    doc.frames.push({ description:"", subtitle:"", duration: doc.frameSec });
+    save();
+    renderEditor();
+  });
+
+  document.getElementById("applyTiming").addEventListener("click", () => {
+    const doc = activeDoc();
+    const newTotal = Math.max(1, parseInt(document.getElementById("totalSec").value||"60",10));
+    const newFrame = Math.max(1, parseInt(document.getElementById("frameSec").value||"5",10));
+    const count = Math.max(1, Math.round(newTotal / newFrame));
+    if (!confirm(`Reset "${store.active}" to ${count} blank frames of ${newFrame}s each?`)) return;
+    doc.totalSec = newTotal; doc.frameSec = newFrame;
+    doc.frames = Array.from({length: count}, () => ({ description:"", subtitle:"", duration: newFrame }));
+    save(); renderEditor();
+  });
+
+  document.getElementById("totalSec").addEventListener("change", e => {
+    activeDoc().totalSec = Math.max(1, parseInt(e.target.value||"60",10)); save();
+  });
+  document.getElementById("frameSec").addEventListener("change", e => {
+    activeDoc().frameSec = Math.max(1, parseInt(e.target.value||"5",10)); save();
+  });
+
+  // -------- doc picker --------
+  docSelect.addEventListener("change", e => {
+    store.active = e.target.value; save(); renderEditor();
+  });
+
+  document.getElementById("newDoc").addEventListener("click", async () => {
+    const name = await promptModal("New storyboard", "Name", "");
+    if (!name) return;
+    const finalName = uniqueName(name.trim());
+    store.docs[finalName] = blankDoc();
+    store.active = finalName;
+    save(); renderDocPicker(); renderEditor();
+  });
+
+  document.getElementById("renameDoc").addEventListener("click", async () => {
+    const current = store.active;
+    const name = await promptModal("Rename storyboard", `Currently: "${current}"`, current);
+    if (!name || name.trim() === current) return;
+    const finalName = uniqueName(name.trim());
+    store.docs[finalName] = store.docs[current];
+    delete store.docs[current];
+    store.active = finalName;
+    save(); renderDocPicker(); renderEditor();
+  });
+
+  document.getElementById("deleteDoc").addEventListener("click", () => {
+    const names = Object.keys(store.docs);
+    if (names.length <= 1) { alert("Can't delete your only storyboard."); return; }
+    if (!confirm(`Delete "${store.active}"? This can't be undone.`)) return;
+    delete store.docs[store.active];
+    store.active = Object.keys(store.docs).sort()[0];
+    save(); renderDocPicker(); renderEditor();
+  });
+
+  // -------- modal prompt --------
+  function promptModal(title, msg, initial) {
+    return new Promise(resolve => {
+      const backdrop = document.getElementById("modalBackdrop");
+      document.getElementById("modalTitle").textContent = title;
+      document.getElementById("modalMsg").textContent = msg;
+      const input = document.getElementById("modalInput");
+      input.value = initial || "";
+      backdrop.classList.add("show");
+      setTimeout(() => { input.focus(); input.select(); }, 10);
+      const ok = document.getElementById("modalOk");
+      const cancel = document.getElementById("modalCancel");
+      const done = (val) => {
+        backdrop.classList.remove("show");
+        ok.removeEventListener("click", okH);
+        cancel.removeEventListener("click", cancelH);
+        input.removeEventListener("keydown", keyH);
+        resolve(val);
+      };
+      const okH = () => done(input.value);
+      const cancelH = () => done(null);
+      const keyH = (e) => {
+        if (e.key === "Enter") done(input.value);
+        if (e.key === "Escape") done(null);
+      };
+      ok.addEventListener("click", okH);
+      cancel.addEventListener("click", cancelH);
+      input.addEventListener("keydown", keyH);
+    });
+  }
+
+  // -------- player --------
+  const playerEl = document.getElementById("player");
+  const playerDesc = document.getElementById("playerDesc");
+  const playerSub = document.getElementById("playerSub");
+  const playerFrameNo = document.getElementById("playerFrameNo");
+  const progressBar = document.getElementById("progressBar");
+  const timeReadout = document.getElementById("timeReadout");
+  const playPauseBtn = document.getElementById("playPauseBtn");
+
+  let playState = { playing:false, idx:0, startedAt:0, elapsedInFrame:0, rafId:null };
+
+  function frames() { return activeDoc().frames; }
+  function totalLength() { return frames().reduce((s,f)=>s+f.duration, 0); }
+  function elapsedBeforeIdx(idx) { let s=0; for (let i=0;i<idx;i++) s+=frames()[i].duration; return s; }
+
+  function showFrame(i) {
+    const f = frames()[i]; if (!f) return;
+    playerDesc.textContent = f.description || "(no description)";
+    playerSub.textContent = f.subtitle || "";
+    playerSub.style.display = f.subtitle ? "" : "none";
+    playerFrameNo.textContent = `FRAME ${i+1} / ${frames().length}`;
+  }
+
+  function startPlayer() {
+    if (frames().length === 0) return;
+    playerEl.style.display = "flex";
+    playState = { playing:true, idx:0, startedAt:performance.now(), elapsedInFrame:0, rafId:null };
+    showFrame(0); playPauseBtn.textContent = "⏸ Pause"; tick();
+  }
+  function stopPlayer() {
+    playState.playing = false; cancelAnimationFrame(playState.rafId);
+    playerEl.style.display = "none";
+  }
+  function pause() {
+    if (!playState.playing) return;
+    playState.elapsedInFrame += (performance.now() - playState.startedAt) / 1000;
+    playState.playing = false; cancelAnimationFrame(playState.rafId);
+    playPauseBtn.textContent = "▶ Play";
+  }
+  function resume() {
+    if (playState.playing) return;
+    playState.playing = true; playState.startedAt = performance.now();
+    playPauseBtn.textContent = "⏸ Pause"; tick();
+  }
+  function gotoFrame(i) {
+    if (i < 0 || i >= frames().length) return;
+    playState.idx = i; playState.elapsedInFrame = 0; playState.startedAt = performance.now();
+    showFrame(i);
+  }
+  function tick() {
+    if (!playState.playing) return;
+    const f = frames()[playState.idx];
+    const now = performance.now();
+    const inFrame = playState.elapsedInFrame + (now - playState.startedAt) / 1000;
+    const total = totalLength();
+    const overall = elapsedBeforeIdx(playState.idx) + Math.min(inFrame, f.duration);
+    progressBar.style.width = `${(overall/total)*100}%`;
+    timeReadout.textContent = `${overall.toFixed(1)}s / ${total.toFixed(1)}s`;
+    if (inFrame >= f.duration) {
+      if (playState.idx >= frames().length - 1) {
+        progressBar.style.width = "100%"; playState.playing = false;
+        playPauseBtn.textContent = "↻ Replay"; return;
+      }
+      playState.idx += 1; playState.elapsedInFrame = 0; playState.startedAt = performance.now();
+      showFrame(playState.idx);
+    }
+    playState.rafId = requestAnimationFrame(tick);
+  }
+
+  document.getElementById("playBtn").addEventListener("click", startPlayer);
+  document.getElementById("closeBtn").addEventListener("click", stopPlayer);
+  document.getElementById("prevBtn").addEventListener("click", () => gotoFrame(playState.idx - 1));
+  document.getElementById("nextBtn").addEventListener("click", () => gotoFrame(playState.idx + 1));
+  playPauseBtn.addEventListener("click", () => {
+    if (playPauseBtn.textContent.startsWith("↻")) { startPlayer(); return; }
+    playState.playing ? pause() : resume();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (playerEl.style.display === "none") return;
+    if (e.key === "Escape") stopPlayer();
+    if (e.key === " ") { e.preventDefault(); playPauseBtn.click(); }
+    if (e.key === "ArrowRight") gotoFrame(playState.idx + 1);
+    if (e.key === "ArrowLeft") gotoFrame(playState.idx - 1);
+  });
+
+  // -------- init --------
+  if (!load() || Object.keys(store.docs).length === 0) {
+    store.docs["Untitled"] = blankDoc();
+    store.active = "Untitled";
+    save();
+  }
+  renderDocPicker();
+  renderEditor();
+})();
+</script>
+</body>
+</html>
