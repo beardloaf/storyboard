@@ -7,7 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.js"></script>
 <style>
   :root {
     --bg: #0d0d0d;
@@ -112,13 +111,27 @@
   .meta-bar .music .row { display: flex; gap: 8px; align-items: center; }
   .meta-bar .music input { font-size: 13px; }
   .meta-bar .music .wave-mini {
-    height: 36px; background: #050505; border: 1px solid var(--line);
+    height: 48px; background: #050505; border: 1px solid var(--line);
     border-radius: 6px; padding: 4px; position: relative;
+    overflow: hidden;
   }
-  .meta-bar .music .wave-mini canvas { width: 100%; height: 100%; }
+  .meta-bar .music .wave-mini.has-audio { cursor: pointer; }
+  .meta-bar .music .wave-mini canvas { width: 100%; height: 100%; position: relative; z-index: 1; }
   .meta-bar .music .wave-mini .placeholder {
     color: #444; font-family: var(--mono); font-size: 11px;
     display: flex; align-items: center; justify-content: center; height: 100%;
+  }
+  .meta-bar .music .wave-mini .progress-overlay {
+    position: absolute; top: 0; left: 0; bottom: 0;
+    background: rgba(233,185,73,.18);
+    border-right: 2px solid var(--accent);
+    width: 0%; pointer-events: none; z-index: 2;
+    transition: width .08s linear;
+  }
+  .music-time {
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    letter-spacing: .5px; margin-left: 8px;
+    font-variant-numeric: tabular-nums;
   }
   .meta-bar .actions-side {
     display: flex; flex-direction: column; gap: 8px;
@@ -130,18 +143,6 @@
     display: block; margin-bottom: 6px;
   }
 
-  .key-banner {
-    max-width: 1200px; margin: 16px auto 0; width: calc(100% - 48px);
-    background: rgba(233,185,73,.08); border: 1px solid rgba(233,185,73,.35);
-    border-radius: 10px; padding: 12px 14px;
-    display: flex; align-items: center; gap: 12px;
-    font-size: 13px; color: var(--text);
-  }
-  .key-banner .grow { flex: 1; }
-  .key-banner .missing {
-    font-family: var(--mono); font-size: 11px; color: var(--muted);
-    letter-spacing: .5px;
-  }
 
   /* Editor */
   .editor { padding: 16px 24px 24px; max-width: 1200px; margin: 0 auto; width: 100%; }
@@ -154,11 +155,30 @@
     display: flex; flex-direction: column;
     gap: 12px;
     container-type: inline-size;
+    position: relative;
+    transition: opacity .15s, transform .15s;
   }
+  .frame.dragging { opacity: .35; }
+  .frame.drop-above::before,
+  .frame.drop-below::after {
+    content: ""; position: absolute; left: -2px; right: -2px;
+    height: 3px; background: var(--accent); border-radius: 2px;
+    pointer-events: none;
+  }
+  .frame.drop-above::before { top: -8px; }
+  .frame.drop-below::after { bottom: -8px; }
   .frame-head {
     display: flex; align-items: center; gap: 12px;
     color: var(--muted); font-family: var(--mono); font-size: 12px;
   }
+  .frame-head .grip {
+    cursor: grab; user-select: none;
+    color: #555; font-size: 14px; line-height: 1;
+    padding: 4px 2px; margin-left: -4px;
+    letter-spacing: -2px;
+  }
+  .frame-head .grip:hover { color: var(--accent); }
+  .frame-head .grip:active { cursor: grabbing; }
   .frame-head .num { color: var(--accent); font-weight: 500; }
   .frame-head .spacer { flex: 1; }
   .frame-head .dur { display: flex; align-items: center; gap: 6px; }
@@ -336,14 +356,6 @@
   .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
   .modal a { color: var(--accent-2); text-decoration: none; }
   .modal a:hover { text-decoration: underline; }
-  .dropzone {
-    border: 1.5px dashed var(--line-2); border-radius: 10px;
-    padding: 30px; text-align: center; color: var(--muted);
-    cursor: pointer; transition: border-color .15s, background .15s;
-  }
-  .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: rgba(233,185,73,.04); }
-  .dropzone .hint { font-family: var(--mono); font-size: 11px; letter-spacing: .5px; margin-top: 4px; }
-  .file-label { font-size: 13px; color: var(--text); margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -369,33 +381,27 @@
     <button class="btn primary" id="playBtn">▶ Play</button>
   </div>
 
-  <div id="keyBanner" class="key-banner" style="display:none">
-    <div class="grow">
-      <strong>Set up your API keys</strong> to generate images, voice, and music.
-      <div class="missing" id="keyBannerMissing"></div>
-    </div>
-    <button class="btn primary" id="keyBannerBtn">⚙ Open settings</button>
-  </div>
-
   <div class="meta-bar">
     <div class="music">
       <span class="label-mono">Soundtrack</span>
       <div class="row">
         <input id="musicPrompt" type="text" placeholder="Cinematic ambient drone, slow strings, melancholic…" />
-        <button class="btn" id="suggestMusic" title="Suggest a music prompt from your storyboard">✨ Suggest</button>
         <button class="btn primary" id="genMusic">⚡ Generate</button>
       </div>
       <div class="wave-mini" id="musicWave">
         <div class="placeholder">No track yet. Write a prompt or hit Suggest, then Generate.</div>
       </div>
       <div class="row" id="musicControls" style="display:none">
-        <button class="btn tiny" id="previewMusic">▶ Preview</button>
+        <button class="btn tiny" id="musicPlayPause" title="Play/Pause (Space)">▶ Play</button>
+        <button class="btn tiny" id="musicStop" title="Stop">⏹ Stop</button>
+        <button class="btn tiny" id="musicRestart" title="Restart">↻ Restart</button>
+        <span class="music-time" id="musicTime">0:00 / 0:00</span>
+        <span class="spacer" style="flex:1"></span>
         <button class="btn tiny" id="clearMusic">Clear</button>
       </div>
+      <audio id="musicAudio" preload="metadata"></audio>
     </div>
-    <div class="actions-side">
-      <button class="btn" id="importBtn">📄 Import from document…</button>
-    </div>
+    <div class="actions-side"></div>
   </div>
 
   <div class="editor">
@@ -437,11 +443,6 @@
 
 <script>
 (() => {
-  // --- pdf.js worker ---
-  if (window.pdfjsLib) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js";
-  }
-
   const STORAGE_KEY = "storyboard.v4";
   const SETTINGS_KEY = "storyboard.settings.v2";
 
@@ -459,7 +460,6 @@
     bflKey: "",
     bflProxyUrl: "",
     elevenKey: "",
-    anthropicKey: "",
     voiceId: "pNInz6obpgDQGcFmaJgB",
     bflModel: "flux-pro-1.1"
   };
@@ -703,23 +703,49 @@
     });
   }
 
+  function fmtSec(s) {
+    if (!isFinite(s) || s < 0) s = 0;
+    const m = Math.floor(s/60), r = Math.floor(s%60);
+    return `${m}:${String(r).padStart(2,"0")}`;
+  }
+  function updateMusicTime() {
+    const a = document.getElementById("musicAudio");
+    document.getElementById("musicTime").textContent = `${fmtSec(a.currentTime || 0)} / ${fmtSec(a.duration || 0)}`;
+    const overlay = document.querySelector("#musicWave .progress-overlay");
+    if (overlay && a.duration) overlay.style.width = `${(a.currentTime / a.duration) * 100}%`;
+  }
   function renderMusic() {
     const doc = activeDoc();
     document.getElementById("musicPrompt").value = doc.musicPrompt || "";
     const mc = document.getElementById("musicControls");
     const mw = document.getElementById("musicWave");
+    const audio = document.getElementById("musicAudio");
     mw.innerHTML = "";
     if (doc.musicKey) {
       const c = document.createElement("canvas");
       mw.appendChild(c);
+      const overlay = document.createElement("div");
+      overlay.className = "progress-overlay";
+      mw.appendChild(overlay);
+      mw.classList.add("has-audio");
       mc.style.display = "flex";
-      idbGet(doc.musicKey).then(b => b && computeWaveform(b, 200)).then(p => p && drawWaveform(c, p)).catch(()=>{});
+      idbGet(doc.musicKey).then(async b => {
+        if (!b) return;
+        const url = await blobUrl(doc.musicKey);
+        audio.src = url;
+        const peaks = await computeWaveform(b, 200);
+        drawWaveform(c, peaks);
+        audio.addEventListener("loadedmetadata", updateMusicTime, { once: true });
+      }).catch(()=>{});
+      document.getElementById("musicPlayPause").textContent = audio.paused ? "▶ Play" : "⏸ Pause";
     } else {
+      mw.classList.remove("has-audio");
       const ph = document.createElement("div");
       ph.className = "placeholder";
-      ph.textContent = "No track yet. Write a prompt or hit Suggest, then Generate.";
+      ph.textContent = "No track yet. Write a prompt, then Generate.";
       mw.appendChild(ph);
       mc.style.display = "none";
+      audio.removeAttribute("src");
     }
   }
 
@@ -744,8 +770,10 @@
       const start = t; t += f.duration;
       const row = document.createElement("div");
       row.className = "frame";
+      row.dataset.frameIdx = i;
       row.innerHTML = `
         <div class="frame-head">
+          <span class="grip" draggable="true" data-frame-idx="${i}" title="Drag to reorder">⋮⋮</span>
           <span class="num">#${String(i+1).padStart(2,"0")}</span>
           <span>${formatTime(start)} – ${formatTime(start + f.duration)}</span>
           <span class="spacer"></span>
@@ -800,6 +828,59 @@
   }
 
   // --- event wiring ---
+  // --- drag-and-drop frame reordering ---
+  let dragSrcIdx = null;
+  framesEl.addEventListener("dragstart", e => {
+    const grip = e.target.closest(".grip");
+    if (!grip) { e.preventDefault(); return; }
+    const frame = grip.closest(".frame");
+    dragSrcIdx = parseInt(frame.dataset.frameIdx, 10);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(dragSrcIdx));
+    e.dataTransfer.setDragImage(frame, 20, 20);
+    frame.classList.add("dragging");
+  });
+  framesEl.addEventListener("dragover", e => {
+    if (dragSrcIdx === null) return;
+    const frame = e.target.closest(".frame");
+    if (!frame) return;
+    e.preventDefault();
+    const rect = frame.getBoundingClientRect();
+    const above = e.clientY < rect.top + rect.height / 2;
+    framesEl.querySelectorAll(".frame").forEach(f => f.classList.remove("drop-above","drop-below"));
+    frame.classList.toggle("drop-above", above);
+    frame.classList.toggle("drop-below", !above);
+  });
+  framesEl.addEventListener("dragleave", e => {
+    if (!e.target.closest(".frames")) {
+      framesEl.querySelectorAll(".frame").forEach(f => f.classList.remove("drop-above","drop-below"));
+    }
+  });
+  framesEl.addEventListener("drop", e => {
+    if (dragSrcIdx === null) return;
+    const frame = e.target.closest(".frame");
+    if (!frame) return;
+    e.preventDefault();
+    const dropIdx = parseInt(frame.dataset.frameIdx, 10);
+    const rect = frame.getBoundingClientRect();
+    const above = e.clientY < rect.top + rect.height / 2;
+    let insertAt = above ? dropIdx : dropIdx + 1;
+    if (insertAt > dragSrcIdx) insertAt -= 1;
+    if (insertAt === dragSrcIdx) { cleanupDrag(); return; }
+    const doc = activeDoc();
+    const [moved] = doc.frames.splice(dragSrcIdx, 1);
+    doc.frames.splice(insertAt, 0, moved);
+    save(); renderEditor();
+    cleanupDrag();
+  });
+  framesEl.addEventListener("dragend", cleanupDrag);
+  function cleanupDrag() {
+    dragSrcIdx = null;
+    framesEl.querySelectorAll(".frame").forEach(f =>
+      f.classList.remove("drop-above","drop-below","dragging")
+    );
+  }
+
   framesEl.addEventListener("input", e => {
     const t = e.target;
     const i = +t.dataset.i; const k = t.dataset.k;
@@ -922,30 +1003,49 @@
       renderMusic();
     } finally { btn.disabled = false; }
   });
-  document.getElementById("suggestMusic").addEventListener("click", async () => {
-    const doc = activeDoc();
-    if (!settings.anthropicKey) { alert("Add your Anthropic API key in settings (⚙) for suggestion."); showSettings(); return; }
-    const btn = document.getElementById("suggestMusic"); btn.disabled = true;
-    try {
-      const scenes = doc.frames.map((f,i) => `${i+1}. ${f.description || "(blank)"} — VO: ${f.subtitle || "(none)"}`).join("\n");
-      const prompt = await callClaude(
-        `You write very short music prompts for AI music generation. Output ONE compact prompt (under 220 chars), specifying genre, mood, instruments, tempo. No preamble.`,
-        `Storyboard scenes:\n${scenes}\n\nProduce a single music prompt for one cohesive bed track covering the whole storyboard.`
-      );
-      document.getElementById("musicPrompt").value = prompt.trim();
-      doc.musicPrompt = prompt.trim(); save();
-    } catch (e) { alert("Suggest failed: " + e.message); }
-    finally { btn.disabled = false; }
-  });
-  document.getElementById("previewMusic").addEventListener("click", async () => {
-    const doc = activeDoc(); if (!doc.musicKey) return;
-    const url = await blobUrl(doc.musicKey);
-    const a = document.getElementById("prevAudio"); a.src = url; a.play();
-  });
   document.getElementById("clearMusic").addEventListener("click", () => {
     const doc = activeDoc();
+    const audio = document.getElementById("musicAudio");
+    audio.pause(); audio.removeAttribute("src");
     if (doc.musicKey) idbDel(doc.musicKey).catch(()=>{});
     doc.musicKey = ""; save(); renderMusic();
+  });
+
+  // Music transport
+  const musicAudio = document.getElementById("musicAudio");
+  const musicPlayPauseBtn = document.getElementById("musicPlayPause");
+  musicPlayPauseBtn.addEventListener("click", async () => {
+    if (!musicAudio.src) {
+      const doc = activeDoc();
+      if (!doc.musicKey) return;
+      musicAudio.src = await blobUrl(doc.musicKey);
+    }
+    if (musicAudio.paused) {
+      musicAudio.play().catch(()=>{});
+    } else {
+      musicAudio.pause();
+    }
+  });
+  document.getElementById("musicStop").addEventListener("click", () => {
+    musicAudio.pause(); musicAudio.currentTime = 0; updateMusicTime();
+  });
+  document.getElementById("musicRestart").addEventListener("click", () => {
+    musicAudio.currentTime = 0; musicAudio.play().catch(()=>{});
+  });
+  musicAudio.addEventListener("timeupdate", updateMusicTime);
+  musicAudio.addEventListener("play",  () => musicPlayPauseBtn.textContent = "⏸ Pause");
+  musicAudio.addEventListener("pause", () => musicPlayPauseBtn.textContent = "▶ Play");
+  musicAudio.addEventListener("ended", () => { musicPlayPauseBtn.textContent = "▶ Play"; updateMusicTime(); });
+  musicAudio.addEventListener("loadedmetadata", updateMusicTime);
+
+  // Scrub via clicking the waveform
+  document.getElementById("musicWave").addEventListener("click", e => {
+    if (!musicAudio.src || !isFinite(musicAudio.duration)) return;
+    const mw = e.currentTarget;
+    const rect = mw.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    musicAudio.currentTime = pct * musicAudio.duration;
+    updateMusicTime();
   });
 
   // --- modal helpers ---
@@ -985,8 +1085,7 @@
       <h3>API keys & voice</h3>
       <p>Keys live in your browser only (localStorage). Sent directly to each provider from this page.<br>
         <a href="https://docs.bfl.ai/quick_start/introduction" target="_blank">Get BFL key</a> ·
-        <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank">Get ElevenLabs key</a> ·
-        <a href="https://console.anthropic.com/" target="_blank">Get Anthropic key</a>
+        <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank">Get ElevenLabs key</a>
       </p>
       <label>BFL API key (images)</label>
       <input id="setBfl" type="password" placeholder="bfl-…" value="${escapeHtml(settings.bflKey)}" />
@@ -995,8 +1094,6 @@
       <p style="margin-top:6px;font-size:11px;color:var(--muted)">BFL blocks browser calls. Deploy the proxy in <a href="https://github.com/beardloaf/storyboard/blob/main/bfl-proxy.worker.js" target="_blank">bfl-proxy.worker.js</a> to a free Cloudflare Worker, then paste its URL here.</p>
       <label>ElevenLabs (voice + music)</label>
       <input id="setEleven" type="password" placeholder="xi-…" value="${escapeHtml(settings.elevenKey)}" />
-      <label>Anthropic (document import, suggestions)</label>
-      <input id="setAnth" type="password" placeholder="sk-ant-…" value="${escapeHtml(settings.anthropicKey)}" />
       <label>Voice</label>
       <select id="setVoice">${voiceOpts}</select>
       <label>BFL model</label>
@@ -1012,168 +1109,15 @@
       settings.bflKey = document.getElementById("setBfl").value.trim();
       settings.bflProxyUrl = document.getElementById("setBflProxy").value.trim().replace(/\/+$/, "");
       settings.elevenKey = document.getElementById("setEleven").value.trim();
-      settings.anthropicKey = document.getElementById("setAnth").value.trim();
       settings.voiceId = document.getElementById("setVoice").value;
       settings.bflModel = document.getElementById("setBflModel").value;
-      saveSettings(); hideModal(); renderKeyBanner();
+      saveSettings(); hideModal();
     });
     document.getElementById("modalCancel").addEventListener("click", hideModal);
   }
   document.getElementById("settingsBtn").addEventListener("click", showSettings);
 
-  // --- import from document ---
-  document.getElementById("importBtn").addEventListener("click", showImportModal);
-  function showImportModal() {
-    showModal(`
-      <h3>Import from document</h3>
-      <p>Upload a .txt / .md / .pdf, or paste text. Claude will turn it into a storyboard.</p>
-      <div class="dropzone" id="dropzone">
-        <div>Drop a file here, or click to browse</div>
-        <div class="hint">.txt · .md · .pdf</div>
-        <input id="fileInput" type="file" accept=".txt,.md,.pdf,text/plain,text/markdown,application/pdf" style="display:none" />
-        <div class="file-label" id="fileLabel"></div>
-      </div>
-      <label>Or paste text</label>
-      <textarea id="pasteText" rows="6" placeholder="Paste your script, brief, or any source text…"></textarea>
-      <label>Target length (seconds)</label>
-      <input id="impTotal" type="number" min="5" step="5" value="${activeDoc().totalSec}" />
-      <label>Seconds per frame</label>
-      <input id="impFrame" type="number" min="1" step="1" value="${activeDoc().frameSec}" />
-      <label>How to use it</label>
-      <select id="impMode">
-        <option value="replace">Replace the active storyboard</option>
-        <option value="new">Create a new storyboard</option>
-      </select>
-      <div class="actions">
-        <button class="btn ghost" id="modalCancel">Cancel</button>
-        <button class="btn primary" id="modalOk">Generate</button>
-      </div>`);
-
-    let fileText = "";
-    let fileName = "";
-    const dropzone = document.getElementById("dropzone");
-    const fileInput = document.getElementById("fileInput");
-    const fileLabel = document.getElementById("fileLabel");
-    dropzone.addEventListener("click", () => fileInput.click());
-    dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("drag"); });
-    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag"));
-    dropzone.addEventListener("drop", async e => {
-      e.preventDefault(); dropzone.classList.remove("drag");
-      const f = e.dataTransfer.files[0]; if (f) await loadFile(f);
-    });
-    fileInput.addEventListener("change", async e => {
-      const f = e.target.files[0]; if (f) await loadFile(f);
-    });
-    async function loadFile(f) {
-      fileName = f.name;
-      fileLabel.textContent = `Loading "${f.name}"…`;
-      try {
-        if (f.name.toLowerCase().endsWith(".pdf")) {
-          fileText = await readPdf(f);
-        } else {
-          fileText = await f.text();
-        }
-        fileLabel.textContent = `✓ ${f.name} · ${fileText.length.toLocaleString()} chars`;
-      } catch (err) {
-        fileLabel.textContent = `Failed: ${err.message}`;
-      }
-    }
-
-    document.getElementById("modalCancel").addEventListener("click", hideModal);
-    document.getElementById("modalOk").addEventListener("click", async () => {
-      const pasted = document.getElementById("pasteText").value.trim();
-      const text = (fileText + "\n\n" + pasted).trim();
-      if (!text) { alert("Add a file or paste some text."); return; }
-      if (!settings.anthropicKey) { alert("Add your Anthropic key in settings."); showSettings(); return; }
-      const totalSec = Math.max(5, parseInt(document.getElementById("impTotal").value||"60",10));
-      const frameSec = Math.max(1, parseInt(document.getElementById("impFrame").value||"5",10));
-      const mode = document.getElementById("impMode").value;
-      const okBtn = document.getElementById("modalOk");
-      okBtn.disabled = true; okBtn.textContent = "Generating…";
-      try {
-        const result = await generateStoryboardFromText(text, totalSec, frameSec);
-        applyGeneratedStoryboard(result, mode, fileName || "Imported");
-        hideModal();
-      } catch (e) {
-        alert("Import failed: " + e.message);
-        okBtn.disabled = false; okBtn.textContent = "Generate";
-      }
-    });
-  }
-  async function readPdf(file) {
-    const buf = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-    let out = "";
-    for (let p = 1; p <= pdf.numPages; p++) {
-      const page = await pdf.getPage(p);
-      const tc = await page.getTextContent();
-      out += tc.items.map(it => it.str).join(" ") + "\n\n";
-    }
-    return out;
-  }
-  async function generateStoryboardFromText(text, totalSec, frameSec) {
-    const count = Math.max(1, Math.round(totalSec / frameSec));
-    const sys = `You convert source material into a cinematic storyboard. Output ONLY JSON, no preamble, no code fences.
-
-Schema:
-{
-  "frames": [
-    { "description": "Visual description of what is seen on screen, 1-2 sentences, concrete and cinematic, suitable for a text-to-image model. Avoid abstract or metaphorical language.",
-      "subtitle":    "Voice-over text the viewer hears (one short line). Conversational, in plain English." }
-  ]
-}
-
-Constraints:
-- Produce exactly ${count} frames.
-- Each frame represents ${frameSec} seconds.
-- The story must flow coherently across frames.
-- Descriptions are concrete visuals (subject, setting, lighting, camera). The viewer should be able to picture each.
-- Subtitles are short — typically <= ${Math.max(8, Math.round(frameSec * 2.5))} words so they fit the duration.`;
-    const userMsg = `Source material:\n${text.slice(0, 50000)}\n\nProduce the JSON now.`;
-    const raw = await callClaude(sys, userMsg, "claude-sonnet-4-6");
-    const jsonText = raw.replace(/^```(?:json)?\n?/i, "").replace(/```\s*$/, "").trim();
-    const parsed = JSON.parse(jsonText);
-    parsed.frames = parsed.frames.map(f => ({
-      description: String(f.description||""),
-      subtitle: String(f.subtitle||""),
-      duration: frameSec,
-      imageKey:"", audioKey:"", wave:[]
-    }));
-    return { totalSec, frameSec, musicKey:"", musicPrompt:"", frames: parsed.frames };
-  }
-  function applyGeneratedStoryboard(doc, mode, sourceName) {
-    if (mode === "new") {
-      const name = uniqueName(sourceName.replace(/\.[^.]+$/, ""));
-      store.docs[name] = doc; store.active = name;
-    } else {
-      store.docs[store.active] = doc;
-    }
-    save(); renderAll();
-  }
-
   // --- API calls ---
-  async function callClaude(system, userMsg, model = "claude-haiku-4-5") {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
-        "x-api-key": settings.anthropicKey
-      },
-      body: JSON.stringify({
-        model, max_tokens: 8000, system,
-        messages: [{ role: "user", content: userMsg }]
-      })
-    });
-    if (!res.ok) {
-      const t = await res.text();
-      throw new Error(`Claude ${res.status}: ${t.slice(0,300)}`);
-    }
-    const data = await res.json();
-    return data.content?.[0]?.text || "";
-  }
-
   async function callBflFlux(prompt) {
     const cinePrompt = `Cinematic film still, anamorphic widescreen, 35mm film grain, natural lighting, shallow depth of field, color graded, photorealistic, atmospheric. ${prompt}`;
     if (!settings.bflProxyUrl) {
@@ -1420,19 +1364,7 @@ Constraints:
     if (e.key === "ArrowLeft") gotoFrame(playState.idx - 1);
   });
 
-  function renderKeyBanner() {
-    const missing = [];
-    if (!settings.bflKey || !settings.bflProxyUrl) missing.push("BFL (key + proxy URL for images)");
-    if (!settings.elevenKey) missing.push("ElevenLabs (voice + music)");
-    if (!settings.anthropicKey) missing.push("Anthropic (document import)");
-    const banner = document.getElementById("keyBanner");
-    if (missing.length === 0) { banner.style.display = "none"; return; }
-    banner.style.display = "flex";
-    document.getElementById("keyBannerMissing").textContent = "Missing: " + missing.join(" · ");
-  }
-  document.getElementById("keyBannerBtn").addEventListener("click", showSettings);
-
-  function renderAll() { renderDocPicker(); renderMusic(); renderEditor(); renderKeyBanner(); }
+  function renderAll() { renderDocPicker(); renderMusic(); renderEditor(); }
 
   // --- init ---
   loadSettings();
@@ -1445,7 +1377,7 @@ Constraints:
   migrateInlineToIdb().then(() => renderAll()).catch(e => console.warn("migration failed", e));
 
   // First-run: prompt for keys if none configured
-  if (!settings.bflKey && !settings.elevenKey && !settings.anthropicKey) {
+  if (!settings.bflKey && !settings.bflProxyUrl && !settings.elevenKey) {
     setTimeout(showSettings, 200);
   }
 
