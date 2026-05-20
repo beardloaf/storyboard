@@ -1,26 +1,24 @@
 /**
- * Cloudflare Worker — CORS-friendly proxy for Black Forest Labs (api.bfl.ai).
+ * Cloudflare Worker — CORS-friendly proxy for Black Forest Labs.
  *
  * Why this exists:
- *   BFL doesn't send Access-Control-Allow-Origin headers, so api.bfl.ai
- *   cannot be called directly from a browser. This Worker sits in front
- *   of BFL, adds the CORS headers, and forwards the request transparently.
- *   Your BFL key still travels client→Worker→BFL via the `x-key` header.
+ *   - api.bfl.ai (image generation endpoints) doesn't send CORS headers.
+ *   - delivery-*.bfl.ai (the CDN serving the actual rendered images) doesn't either.
+ *   This Worker fronts both, adds CORS, and rewrites every BFL URL in the
+ *   JSON responses so the browser keeps talking through this Worker instead
+ *   of hitting BFL directly.
  *
- * Deploy (3 minutes, free):
- *   1. Go to https://dash.cloudflare.com → "Workers & Pages" → "Create" → "Create Worker"
- *   2. Name it (e.g. "bfl-proxy"), click Deploy
- *   3. Click "Edit code" on the worker overview
- *   4. Replace ALL the default code with the contents of this file
- *   5. Click "Save and deploy"
- *   6. Copy the worker URL (e.g. https://bfl-proxy.<your-subdomain>.workers.dev)
- *   7. In the storyboard app, ⚙ API keys → paste the URL into "BFL Proxy URL"
+ * Deploy:
+ *   Workers & Pages → Create → "Hello World" Worker → Deploy →
+ *   Edit code → replace with this file → Deploy again.
  *
- * Polling note:
- *   BFL's POST response contains a polling_url pointing back at api.bfl.ai
- *   (sometimes a regional subdomain). This Worker rewrites that URL so the
- *   browser polls through the Worker too, preserving CORS. The upstream host
- *   is encoded into a __upstream query param to survive regional endpoints.
+ * Routing trick:
+ *   Different upstream hosts are encoded in a `__upstream` query parameter.
+ *   When the Worker rewrites a URL like
+ *     https://delivery-eu1.bfl.ai/results/xyz.jpeg
+ *   it becomes
+ *     https://<worker>/results/xyz.jpeg?__upstream=delivery-eu1.bfl.ai
+ *   and the Worker reads the param to know where to forward.
  */
 
 export default {
@@ -46,7 +44,7 @@ export default {
     if (xKey) fwdHeaders["x-key"] = xKey;
     const ct = request.headers.get("content-type");
     if (ct) fwdHeaders["content-type"] = ct;
-    fwdHeaders["accept"] = "application/json";
+    fwdHeaders["accept"] = request.headers.get("accept") || "*/*";
 
     const upstream = await fetch(targetUrl, {
       method: request.method,
@@ -54,23 +52,39 @@ export default {
       body: request.method === "POST" ? await request.arrayBuffer() : undefined,
     });
 
-    let bodyText = await upstream.text();
-    try {
-      const parsed = JSON.parse(bodyText);
-      if (parsed.polling_url) {
-        const pu = new URL(parsed.polling_url);
-        const sep = pu.search ? "&" : "?";
-        parsed.polling_url = `${reqUrl.origin}${pu.pathname}${pu.search}${sep}__upstream=${pu.host}`;
-        bodyText = JSON.stringify(parsed);
-      }
-    } catch (_) {}
+    const contentType = upstream.headers.get("content-type") || "";
 
-    return new Response(bodyText, {
+    // JSON responses: rewrite any BFL URLs so the browser stays on the proxy
+    if (contentType.includes("application/json")) {
+      let bodyText = await upstream.text();
+      try {
+        const parsed = JSON.parse(bodyText);
+        let changed = false;
+        const rewrite = (rawUrl) => {
+          const pu = new URL(rawUrl);
+          const sep = pu.search ? "&" : "?";
+          return `${reqUrl.origin}${pu.pathname}${pu.search}${sep}__upstream=${pu.host}`;
+        };
+        if (parsed.polling_url) {
+          parsed.polling_url = rewrite(parsed.polling_url);
+          changed = true;
+        }
+        if (parsed.result && typeof parsed.result.sample === "string" && parsed.result.sample.startsWith("http")) {
+          parsed.result.sample = rewrite(parsed.result.sample);
+          changed = true;
+        }
+        if (changed) bodyText = JSON.stringify(parsed);
+      } catch (_) {}
+      return new Response(bodyText, {
+        status: upstream.status,
+        headers: { ...corsHeaders, "content-type": contentType },
+      });
+    }
+
+    // Binary (the image itself): stream straight through with CORS
+    return new Response(upstream.body, {
       status: upstream.status,
-      headers: {
-        ...corsHeaders,
-        "content-type": upstream.headers.get("content-type") || "application/json",
-      },
+      headers: { ...corsHeaders, "content-type": contentType },
     });
   },
 };
