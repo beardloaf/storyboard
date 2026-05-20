@@ -1952,18 +1952,85 @@
     return btoa(unescape(encodeURIComponent(str)));
   }
 
+  // --- Web Crypto helpers (password-protected shares) ---
+  function bytesToBase64(bytes) {
+    const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    let bin = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < arr.length; i += chunk) {
+      bin += String.fromCharCode.apply(null, arr.subarray(i, i + chunk));
+    }
+    return btoa(bin);
+  }
+  function base64ToBytes(b64) {
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return arr;
+  }
+  async function deriveKey(password, salt) {
+    const km = await crypto.subtle.importKey(
+      "raw", new TextEncoder().encode(password),
+      { name: "PBKDF2" }, false, ["deriveKey"]
+    );
+    return crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt, iterations: 200000, hash: "SHA-256" },
+      km,
+      { name: "AES-GCM", length: 256 },
+      false, ["encrypt", "decrypt"]
+    );
+  }
+  async function encryptForShare(plaintextJsonString, password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await deriveKey(password, salt);
+    const ct = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      key,
+      new TextEncoder().encode(plaintextJsonString)
+    );
+    return {
+      encrypted: true,
+      version: 1,
+      kdf: { name: "PBKDF2", iterations: 200000, hash: "SHA-256" },
+      cipher: "AES-GCM",
+      salt: bytesToBase64(salt),
+      iv: bytesToBase64(iv),
+      ciphertext: bytesToBase64(new Uint8Array(ct))
+    };
+  }
+  async function decryptShare(env, password) {
+    const salt = base64ToBytes(env.salt);
+    const iv = base64ToBytes(env.iv);
+    const ciphertext = base64ToBytes(env.ciphertext);
+    const key = await deriveKey(password, salt);
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
+    return JSON.parse(new TextDecoder().decode(pt));
+  }
+
   async function uploadShare() {
     if (!settings.githubToken) { alert("Add a GitHub PAT in ⚙ API keys (needs repo:contents write)."); showSettings(); return; }
     if (!settings.githubRepo || !settings.githubRepo.includes("/")) {
       alert("Set the share repo (owner/name) in ⚙ API keys."); showSettings(); return;
     }
+    const password = await askSharePassword();
+    if (password === null) return; // cancelled
     const slug = randomSlug();
     const status = showExportStatus("Bundling storyboard…");
     try {
       updateExportStatus(status, "Bundling assets…", 10);
       const bundle = await bundleStoryboardForShare();
-      const json = JSON.stringify(bundle);
-      updateExportStatus(status, `Uploading ${(json.length / 1024).toFixed(0)} KB to GitHub…`, 55);
+      let payload, payloadLabel;
+      if (password) {
+        updateExportStatus(status, "Encrypting…", 35);
+        const env = await encryptForShare(JSON.stringify(bundle), password);
+        payload = JSON.stringify(env);
+        payloadLabel = "encrypted";
+      } else {
+        payload = JSON.stringify(bundle);
+        payloadLabel = "unencrypted";
+      }
+      updateExportStatus(status, `Uploading ${(payload.length / 1024).toFixed(0)} KB to GitHub…`, 65);
       const apiUrl = `https://api.github.com/repos/${settings.githubRepo}/contents/shares/${slug}.json`;
       const res = await fetch(apiUrl, {
         method: "PUT",
@@ -1973,8 +2040,8 @@
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          message: `share: ${store.active} (${slug})`,
-          content: utf8ToBase64(json)
+          message: `share: ${store.active} (${slug}, ${payloadLabel})`,
+          content: utf8ToBase64(payload)
         })
       });
       if (!res.ok) {
@@ -1984,7 +2051,7 @@
       const shareUrl = `${location.origin}${location.pathname}?share=${slug}`;
       updateExportStatus(status, "Done", 100);
       setTimeout(hideExportStatus, 600);
-      showShareLinkModal(shareUrl);
+      showShareLinkModal(shareUrl, password);
     } catch (e) {
       console.error(e);
       hideExportStatus();
@@ -1992,11 +2059,41 @@
     }
   }
 
-  function showShareLinkModal(url) {
+  function askSharePassword() {
+    return new Promise((resolve) => {
+      showModal(`
+        <h3>Create share link</h3>
+        <p>Leave the password blank for an open link. With a password, the bundle is encrypted in GitHub (AES-GCM, PBKDF2/200k); only people with the password can decrypt and view it.</p>
+        <label>Password (optional)</label>
+        <input id="sharePw" type="text" autocomplete="off" placeholder="e.g. sunset-walks" />
+        <div class="actions">
+          <button class="btn ghost" id="modalCancel">Cancel</button>
+          <button class="btn primary" id="modalOk">Create link</button>
+        </div>`);
+      const input = document.getElementById("sharePw");
+      setTimeout(() => input.focus(), 10);
+      const done = (v) => { hideModal(); resolve(v); };
+      document.getElementById("modalOk").addEventListener("click", () => done(input.value));
+      document.getElementById("modalCancel").addEventListener("click", () => done(null));
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") done(input.value);
+        if (e.key === "Escape") done(null);
+      });
+    });
+  }
+
+  function showShareLinkModal(url, password) {
+    const pwBlock = password
+      ? `<label>Password</label>
+         <input type="text" readonly value="${escapeHtml(password)}" />
+         <p style="margin-top:6px;font-size:11px;color:var(--muted)">Send this password separately. Without it the link is useless — the bundle on GitHub is encrypted.</p>`
+      : `<p style="margin-top:6px;font-size:11px;color:var(--muted)">No password set — anyone with this link can watch.</p>`;
     showModal(`
       <h3>Shareable link</h3>
-      <p>Anyone with this link can watch your storyboard. They can't edit it.</p>
+      <p>Watch-only access. Recipients can't edit it.</p>
+      <label>URL</label>
       <input id="shareUrl" type="text" readonly value="${escapeHtml(url)}" />
+      ${pwBlock}
       <div class="actions">
         <button class="btn ghost" id="modalCancel">Close</button>
         <button class="btn primary" id="modalOk">Copy link</button>
@@ -2012,6 +2109,44 @@
   document.getElementById("shareBtn").addEventListener("click", uploadShare);
 
   // --- Share-mode view (recipient side) ---
+  function promptAndDecryptShare(env) {
+    return new Promise((resolve) => {
+      const render = (errorMsg) => {
+        document.body.innerHTML = `
+          <div class="share-view">
+            <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
+            <h1>🔒 Password required</h1>
+            <div class="meta">This storyboard is encrypted</div>
+            <div style="display:flex;flex-direction:column;gap:10px;width:min(360px,90vw);margin-top:8px">
+              <input id="shareUnlockPw" type="password" placeholder="Password" autocomplete="off"
+                style="text-align:center;padding:14px 18px;font-size:15px" />
+              <button class="btn primary" id="shareUnlockBtn" style="padding:14px 20px">Unlock</button>
+              ${errorMsg ? `<div style="color:var(--danger);font-family:var(--mono);font-size:11px;letter-spacing:.5px">${escapeHtml(errorMsg)}</div>` : ""}
+            </div>
+            <div class="footer">Made with <a href="${location.origin}${location.pathname}" target="_blank">storyboard</a></div>
+          </div>`;
+        const input = document.getElementById("shareUnlockPw");
+        const btn = document.getElementById("shareUnlockBtn");
+        setTimeout(() => input.focus(), 10);
+        const tryUnlock = async () => {
+          const pw = input.value;
+          if (!pw) { render("Enter a password."); return; }
+          btn.disabled = true; btn.textContent = "Unlocking…";
+          try {
+            const decoded = await decryptShare(env, pw);
+            resolve(decoded);
+          } catch (e) {
+            console.warn("decrypt failed", e);
+            render("Wrong password. Try again.");
+          }
+        };
+        btn.addEventListener("click", tryUnlock);
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter") tryUnlock(); });
+      };
+      render("");
+    });
+  }
+
   async function loadSharedBundle(slug) {
     const repo = settings.githubRepo || "beardloaf/storyboard";
     // Try raw.githubusercontent first (instant after commit); fall back to Pages.
@@ -2037,9 +2172,9 @@
         <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
         <div class="share-loading">Loading storyboard…</div>
       </div>`;
-    let bundle;
+    let raw;
     try {
-      bundle = await loadSharedBundle(slug);
+      raw = await loadSharedBundle(slug);
     } catch (e) {
       document.body.innerHTML = `
         <div class="share-view">
@@ -2048,6 +2183,11 @@
           <a href="${location.origin}${location.pathname}" class="btn">Open the editor</a>
         </div>`;
       return;
+    }
+    let bundle = raw;
+    if (raw && raw.encrypted) {
+      bundle = await promptAndDecryptShare(raw);
+      if (!bundle) return; // user gave up
     }
     // Build a doc in memory; convert base64 assets back to blobs and stash them
     // in IDB under share-prefixed keys so the existing player code Just Works.
