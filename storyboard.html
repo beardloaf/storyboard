@@ -282,6 +282,19 @@
   }
   .img-preview .corner button:hover { border-color: var(--accent); }
 
+  .img-preview.drag-over-file {
+    border-color: var(--accent); border-style: dashed;
+  }
+  .img-preview.drag-over-file::after {
+    content: "Drop to upload";
+    position: absolute; inset: 0; z-index: 3;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(var(--accent-rgb), .25);
+    color: #fff;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 1px;
+    pointer-events: none;
+  }
+
   /* Image version counter */
   .img-preview .img-counter {
     position: absolute; bottom: 8px; left: 8px; z-index: 2;
@@ -978,8 +991,26 @@
     e.dataTransfer.setDragImage(frame, 20, 20);
     frame.classList.add("dragging");
   });
+  function isFileDrag(e) {
+    const types = e.dataTransfer && e.dataTransfer.types;
+    return !!(types && Array.from(types).includes("Files"));
+  }
   framesEl.addEventListener("dragover", e => {
+    // File drag from desktop onto image preview
+    if (dragSrcIdx === null && isFileDrag(e)) {
+      const imgPreview = e.target.closest(".img-preview");
+      if (imgPreview) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        framesEl.querySelectorAll(".img-preview.drag-over-file").forEach(el => {
+          if (el !== imgPreview) el.classList.remove("drag-over-file");
+        });
+        imgPreview.classList.add("drag-over-file");
+      }
+      return;
+    }
     if (dragSrcIdx === null) return;
+    // Frame reorder via grip
     const frame = e.target.closest(".frame");
     if (!frame) return;
     e.preventDefault();
@@ -992,10 +1023,30 @@
   framesEl.addEventListener("dragleave", e => {
     if (!e.target.closest(".frames")) {
       framesEl.querySelectorAll(".frame").forEach(f => f.classList.remove("drop-before","drop-after"));
+      framesEl.querySelectorAll(".img-preview.drag-over-file").forEach(el => el.classList.remove("drag-over-file"));
+    } else {
+      // If leaving an image preview, drop its highlight
+      const left = e.target.closest && e.target.closest(".img-preview");
+      const entered = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest(".img-preview");
+      if (left && left !== entered) left.classList.remove("drag-over-file");
     }
   });
-  framesEl.addEventListener("drop", e => {
+  framesEl.addEventListener("drop", async e => {
+    // File drop onto image preview
+    if (dragSrcIdx === null && isFileDrag(e)) {
+      const imgPreview = e.target.closest(".img-preview");
+      if (!imgPreview) return;
+      e.preventDefault();
+      imgPreview.classList.remove("drag-over-file");
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) { alert("That doesn't look like an image file."); return; }
+      const frameIdx = parseInt(imgPreview.dataset.img, 10);
+      await handleImageUpload(frameIdx, file);
+      return;
+    }
     if (dragSrcIdx === null) return;
+    // Frame reorder drop
     const frame = e.target.closest(".frame");
     if (!frame) return;
     e.preventDefault();
@@ -1142,7 +1193,7 @@
     const mw = document.getElementById("musicWave");
     mw.innerHTML = `<div class="placeholder" style="color:var(--accent)">composing… (this can take ~30s)</div>`;
     try {
-      const lengthMs = Math.max(10000, Math.min(300000, doc.frames.reduce((s,f)=>s+f.duration,0) * 1000));
+      const lengthMs = Math.round(Math.max(10000, Math.min(300000, doc.frames.reduce((s,f)=>s+f.duration,0) * 1000)));
       const blob = await callElevenLabsMusic(prompt, lengthMs);
       if (doc.musicKey) idbDel(doc.musicKey).catch(()=>{});
       const key = newKey("music");
