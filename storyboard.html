@@ -911,6 +911,7 @@
   }
 
   function renderEditor() {
+    const sy = window.scrollY;
     const doc = activeDoc();
     framesEl.innerHTML = "";
     let t = 0;
@@ -976,6 +977,17 @@
     document.getElementById("totalSec").value = doc.totalSec;
     document.getElementById("frameSec").value = doc.frameSec;
     hydrateImages(framesEl);
+    if (window.scrollY !== sy) window.scrollTo({ top: sy, left: 0, behavior: "instant" });
+  }
+
+  // Localized re-render of just one frame's image preview (so prev/next/upload
+  // don't rebuild the whole grid and trigger scroll clamping).
+  function updateFrameImage(i) {
+    const f = activeDoc().frames[i];
+    const preview = document.querySelector(`[data-img="${i}"]`);
+    if (!preview) return;
+    preview.innerHTML = frameImageHtml(f);
+    hydrateImages(preview);
   }
 
   // --- event wiring ---
@@ -1105,12 +1117,12 @@
       const f = doc.frames[i];
       const history = Array.isArray(f.imageHistory) ? f.imageHistory : [];
       const idx = history.indexOf(f.imageKey);
-      if (idx > 0) { f.imageKey = history[idx - 1]; save(); renderEditor(); }
+      if (idx > 0) { f.imageKey = history[idx - 1]; save(); updateFrameImage(i); }
     } else if (action === "next-image") {
       const f = doc.frames[i];
       const history = Array.isArray(f.imageHistory) ? f.imageHistory : [];
       const idx = history.indexOf(f.imageKey);
-      if (idx >= 0 && idx < history.length - 1) { f.imageKey = history[idx + 1]; save(); renderEditor(); }
+      if (idx >= 0 && idx < history.length - 1) { f.imageKey = history[idx + 1]; save(); updateFrameImage(i); }
     } else if (action === "clear-image") {
       const f = doc.frames[i];
       const history = Array.isArray(f.imageHistory) ? f.imageHistory : [];
@@ -1119,7 +1131,7 @@
       if (idx >= 0) history.splice(idx, 1);
       f.imageHistory = history;
       f.imageKey = history.length > 0 ? history[Math.min(idx, history.length - 1)] : "";
-      save(); renderEditor();
+      save(); updateFrameImage(i);
     } else if (action === "gen-voice") {
       await handleGenerateVoice(i, btn);
     } else if (action === "play-audio") {
@@ -1433,7 +1445,7 @@
       f.imageHistory.push(key);
       f.imageKey = key;
       save();
-      renderEditor();
+      updateFrameImage(i);
     } catch (e) {
       console.error(e);
       alert("Upload failed: " + e.message);
