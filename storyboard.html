@@ -71,6 +71,9 @@
   .side-panel .section {
     display: flex; flex-direction: column; gap: 12px;
   }
+  .side-panel .section.music {
+    flex: 1; min-height: 0;
+  }
   .side-panel .section-divider {
     height: 1px; background: var(--line); margin: 6px -6px;
   }
@@ -174,6 +177,11 @@
     display: block; margin-bottom: 6px;
   }
 
+
+  .main-actions {
+    display: flex; justify-content: flex-end; align-items: center;
+    gap: 8px; margin-bottom: 20px;
+  }
 
   /* Editor */
   .editor { width: 100%; }
@@ -350,7 +358,7 @@
     line-height: 1.45;
   }
   #musicPrompt {
-    min-height: 168px;
+    flex: 1; min-height: 120px; resize: none;
     font-size: 13px; line-height: 1.45;
   }
 
@@ -531,14 +539,14 @@
 
     <div class="section-divider"></div>
 
+    <div class="section">
+      <button class="btn" id="settingsBtn" title="API keys & voice">⚙ API keys</button>
+    </div>
+
+    <div class="section-divider"></div>
+
     <div class="section music">
       <span class="label-mono">Soundtrack</span>
-      <div class="row">
-        <textarea id="musicPrompt" rows="8" placeholder="Cinematic ambient, slow strings, melancholic… (describe genre, mood, instruments, tempo)"></textarea>
-      </div>
-      <div class="row">
-        <button class="btn primary" id="genMusic" style="flex:1">⚡ Generate</button>
-      </div>
       <div class="wave-mini" id="musicWave">
         <div class="placeholder">No track yet. Write a prompt, then Generate.</div>
       </div>
@@ -551,23 +559,18 @@
       <div class="row" id="musicSecondary" style="display:none">
         <button class="btn tiny" id="clearMusic">Clear track</button>
       </div>
+      <button class="btn primary" id="genMusic">⚡ Generate</button>
+      <textarea id="musicPrompt" placeholder="Cinematic ambient, slow strings, melancholic… (describe genre, mood, instruments, tempo)"></textarea>
       <audio id="musicAudio" preload="metadata"></audio>
-    </div>
-
-    <div class="section-divider"></div>
-
-    <div class="section">
-      <button class="btn" id="settingsBtn" title="API keys & voice">⚙ API keys</button>
-    </div>
-
-    <div class="section" style="margin-top:auto">
-      <button class="btn primary panel-play" id="playBtn">▶ Play</button>
-      <button class="btn panel-download" id="downloadBtn">⬇ Download MP4 (2K)</button>
-      <button class="btn panel-download" id="shareBtn">↗ Share link</button>
     </div>
   </aside>
 
   <main>
+    <div class="main-actions">
+      <button class="btn primary" id="playBtn">▶ Play</button>
+      <button class="btn" id="shareBtn">↗ Share link</button>
+      <button class="btn" id="downloadBtn">⬇ Download MP4 (2K)</button>
+    </div>
     <div class="editor">
       <div id="frames" class="frames"></div>
       <div class="add-row">
