@@ -44,23 +44,39 @@
   input:focus, textarea:focus, select:focus { border-color: var(--accent-2); }
   textarea { resize: vertical; }
 
-  .app { min-height: 100%; display: flex; flex-direction: column; }
+  .app {
+    min-height: 100%;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+  }
+  main {
+    min-width: 0;
+    padding: 20px 24px 40px;
+  }
 
-  .topbar {
-    display: flex; align-items: center; gap: 16px;
-    padding: 12px 20px;
-    border-bottom: 1px solid var(--line);
+  /* Floating right panel */
+  .side-panel {
+    position: sticky; top: 0;
+    height: 100vh; overflow-y: auto;
     background: var(--panel);
-    position: sticky; top: 0; z-index: 10;
-    flex-wrap: wrap;
+    border-left: 1px solid var(--line);
+    padding: 18px 18px 24px;
+    display: flex; flex-direction: column;
+    gap: 18px;
+  }
+  .side-panel .section {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .side-panel .section-divider {
+    height: 1px; background: var(--line); margin: 4px -4px;
   }
   .brand { display: flex; align-items: center; height: 22px; }
   .brand img { max-height: 22px; display: block; }
-  .topbar .spacer { flex: 1; }
 
-  .doc-picker { display: flex; align-items: center; gap: 8px; }
+  .doc-picker { display: flex; align-items: center; gap: 6px; }
   .doc-picker select {
-    width: auto; min-width: 180px; padding: 6px 28px 6px 10px; font-size: 13px;
+    flex: 1; min-width: 0; padding: 7px 28px 7px 10px; font-size: 13px;
     background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
                       linear-gradient(135deg, var(--muted) 50%, transparent 50%);
     background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
@@ -69,10 +85,24 @@
   }
 
   .config {
-    display: flex; align-items: center; gap: 8px;
-    color: var(--muted); font-size: 13px;
+    display: flex; align-items: center; gap: 6px;
+    color: var(--muted); font-size: 12px;
+    flex-wrap: wrap;
   }
   .config input[type=number] { width: 60px; padding: 6px 8px; font-size: 13px; }
+
+  .panel-play, .panel-download {
+    width: 100%; justify-content: center;
+    padding: 12px; font-size: 14px;
+  }
+
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .side-panel {
+      position: static; height: auto;
+      border-left: none; border-bottom: 1px solid var(--line);
+    }
+  }
 
   .btn {
     border: 1px solid var(--line);
@@ -95,33 +125,23 @@
   .btn.danger { color: var(--danger); border-color: transparent; background: transparent; }
   .btn.danger:hover { background: rgba(255,93,93,.08); }
 
-  /* Music + import row */
-  .meta-bar {
-    max-width: 1200px; margin: 0 auto; width: 100%;
-    padding: 20px 24px 0;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 16px; align-items: end;
-  }
-  .meta-bar .music {
-    background: var(--panel); border: 1px solid var(--line);
-    border-radius: 12px; padding: 12px 14px;
-    display: flex; flex-direction: column; gap: 8px;
-  }
-  .meta-bar .music .row { display: flex; gap: 8px; align-items: center; }
-  .meta-bar .music input { font-size: 13px; }
-  .meta-bar .music .wave-mini {
-    height: 48px; background: #050505; border: 1px solid var(--line);
+  /* Music section (inside side panel) */
+  .music { display: flex; flex-direction: column; gap: 8px; }
+  .music .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .music input { font-size: 13px; }
+  .music .wave-mini {
+    height: 56px; background: #050505; border: 1px solid var(--line);
     border-radius: 6px; padding: 4px; position: relative;
     overflow: hidden;
   }
-  .meta-bar .music .wave-mini.has-audio { cursor: pointer; }
-  .meta-bar .music .wave-mini canvas { width: 100%; height: 100%; position: relative; z-index: 1; }
-  .meta-bar .music .wave-mini .placeholder {
-    color: #444; font-family: var(--mono); font-size: 11px;
+  .music .wave-mini.has-audio { cursor: pointer; }
+  .music .wave-mini canvas { width: 100%; height: 100%; position: relative; z-index: 1; }
+  .music .wave-mini .placeholder {
+    color: #444; font-family: var(--mono); font-size: 10px;
     display: flex; align-items: center; justify-content: center; height: 100%;
+    text-align: center; padding: 0 8px;
   }
-  .meta-bar .music .wave-mini .progress-overlay {
+  .music .wave-mini .progress-overlay {
     position: absolute; top: 0; left: 0; bottom: 0;
     background: rgba(233,185,73,.18);
     border-right: 2px solid var(--accent);
@@ -130,11 +150,8 @@
   }
   .music-time {
     font-family: var(--mono); font-size: 11px; color: var(--muted);
-    letter-spacing: .5px; margin-left: 8px;
+    letter-spacing: .5px;
     font-variant-numeric: tabular-nums;
-  }
-  .meta-bar .actions-side {
-    display: flex; flex-direction: column; gap: 8px;
   }
 
   .label-mono {
@@ -145,8 +162,8 @@
 
 
   /* Editor */
-  .editor { padding: 16px 24px 24px; max-width: 1200px; margin: 0 auto; width: 100%; }
-  .frames { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
+  .editor { width: 100%; }
+  .frames { display: flex; flex-direction: column; gap: 14px; }
 
   .frame {
     background: var(--panel); border: 1px solid var(--line);
@@ -246,7 +263,8 @@
   .wave-preview {
     background: #050505; border: 1px solid var(--line);
     border-radius: 8px; padding: 10px;
-    margin-bottom: 8px; height: 80px;
+    margin-bottom: 8px;
+    aspect-ratio: 16 / 9;
     position: relative; display: flex; align-items: center; justify-content: center;
   }
   .wave-preview canvas { width: 100%; height: 100%; display: block; }
@@ -263,7 +281,10 @@
     display: flex; gap: 6px; align-items: center; margin-bottom: 8px;
   }
 
-  .col textarea { min-height: 80px; flex: 1; }
+  .col textarea { height: 120px; min-height: 120px; flex: none; }
+  @container (min-width: 780px) {
+    .col textarea { height: 140px; min-height: 140px; }
+  }
 
   .add-row { display: flex; justify-content: center; padding: 18px 0 8px; }
 
@@ -356,64 +377,105 @@
   .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
   .modal a { color: var(--accent-2); text-decoration: none; }
   .modal a:hover { text-decoration: underline; }
+
+  /* Export progress */
+  .export-status {
+    position: fixed; bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel); border: 1px solid var(--accent);
+    border-radius: 10px; padding: 14px 22px;
+    font-family: var(--mono); font-size: 13px;
+    z-index: 300; color: var(--text);
+    box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    display: flex; align-items: center; gap: 14px;
+    min-width: 360px;
+  }
+  .export-status .label { white-space: nowrap; }
+  .export-status .bar {
+    flex: 1; height: 4px; background: rgba(255,255,255,.08);
+    border-radius: 2px; overflow: hidden;
+  }
+  .export-status .bar > div {
+    height: 100%; background: var(--accent); width: 0%;
+    transition: width .15s linear;
+  }
+  .export-status .pct { font-variant-numeric: tabular-nums; min-width: 38px; text-align: right; }
 </style>
 </head>
 <body>
 <div class="app">
-  <div class="topbar">
-    <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
-    <div class="doc-picker">
-      <select id="docSelect" title="Storyboard"></select>
-      <button class="btn icon" id="newDoc" title="New storyboard">+</button>
-      <button class="btn icon" id="renameDoc" title="Rename">✎</button>
-      <button class="btn icon" id="deleteDoc" title="Delete">🗑</button>
+  <main>
+    <div class="editor">
+      <div id="frames" class="frames"></div>
+      <div class="add-row">
+        <button class="btn" id="addFrame">+ Add frame</button>
+      </div>
+      <div class="summary">
+        <div id="summaryLeft">0 frames</div>
+        <div id="summaryRight">0s total</div>
+      </div>
     </div>
-    <div class="spacer"></div>
-    <div class="config">
-      <span>Total</span>
-      <input id="totalSec" type="number" min="5" step="5" value="60" />
-      <span>s · per frame</span>
-      <input id="frameSec" type="number" min="1" step="1" value="5" />
-      <span>s</span>
-      <button class="btn ghost" id="applyTiming">Reset</button>
-    </div>
-    <button class="btn" id="settingsBtn" title="API keys & voice">⚙ API keys</button>
-    <button class="btn primary" id="playBtn">▶ Play</button>
-  </div>
+  </main>
 
-  <div class="meta-bar">
-    <div class="music">
+  <aside class="side-panel">
+    <div class="section">
+      <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
+    </div>
+
+    <div class="section">
+      <span class="label-mono">Storyboard</span>
+      <div class="doc-picker">
+        <select id="docSelect" title="Storyboard"></select>
+        <button class="btn icon" id="newDoc" title="New">+</button>
+        <button class="btn icon" id="renameDoc" title="Rename">✎</button>
+        <button class="btn icon" id="deleteDoc" title="Delete">🗑</button>
+      </div>
+      <div class="config">
+        <span>Total</span>
+        <input id="totalSec" type="number" min="5" step="5" value="60" />
+        <span>s · per frame</span>
+        <input id="frameSec" type="number" min="1" step="1" value="5" />
+        <span>s</span>
+        <button class="btn ghost" id="applyTiming">Reset</button>
+      </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <div class="section music">
       <span class="label-mono">Soundtrack</span>
       <div class="row">
-        <input id="musicPrompt" type="text" placeholder="Cinematic ambient drone, slow strings, melancholic…" />
-        <button class="btn primary" id="genMusic">⚡ Generate</button>
+        <input id="musicPrompt" type="text" placeholder="Cinematic ambient, slow strings, melancholic…" />
+      </div>
+      <div class="row">
+        <button class="btn primary" id="genMusic" style="flex:1">⚡ Generate</button>
       </div>
       <div class="wave-mini" id="musicWave">
-        <div class="placeholder">No track yet. Write a prompt or hit Suggest, then Generate.</div>
+        <div class="placeholder">No track yet. Write a prompt, then Generate.</div>
       </div>
       <div class="row" id="musicControls" style="display:none">
-        <button class="btn tiny" id="musicPlayPause" title="Play/Pause (Space)">▶ Play</button>
-        <button class="btn tiny" id="musicStop" title="Stop">⏹ Stop</button>
-        <button class="btn tiny" id="musicRestart" title="Restart">↻ Restart</button>
+        <button class="btn tiny" id="musicPlayPause" title="Play/Pause">▶ Play</button>
+        <button class="btn tiny" id="musicStop" title="Stop">⏹</button>
+        <button class="btn tiny" id="musicRestart" title="Restart">↻</button>
         <span class="music-time" id="musicTime">0:00 / 0:00</span>
-        <span class="spacer" style="flex:1"></span>
-        <button class="btn tiny" id="clearMusic">Clear</button>
+      </div>
+      <div class="row" id="musicSecondary" style="display:none">
+        <button class="btn tiny" id="clearMusic">Clear track</button>
       </div>
       <audio id="musicAudio" preload="metadata"></audio>
     </div>
-    <div class="actions-side"></div>
-  </div>
 
-  <div class="editor">
-    <div id="frames" class="frames"></div>
-    <div class="add-row">
-      <button class="btn" id="addFrame">+ Add frame</button>
+    <div class="section-divider"></div>
+
+    <div class="section">
+      <button class="btn" id="settingsBtn" title="API keys & voice">⚙ API keys</button>
     </div>
-    <div class="summary">
-      <div id="summaryLeft">0 frames</div>
-      <div id="summaryRight">0s total</div>
+
+    <div class="section" style="margin-top:auto">
+      <button class="btn primary panel-play" id="playBtn">▶ Play</button>
+      <button class="btn panel-download" id="downloadBtn">⬇ Download MP4 (2K)</button>
     </div>
-  </div>
+  </aside>
 </div>
 
 <div class="player" id="player" style="display:none">
@@ -724,6 +786,7 @@
     const doc = activeDoc();
     document.getElementById("musicPrompt").value = doc.musicPrompt || "";
     const mc = document.getElementById("musicControls");
+    const ms = document.getElementById("musicSecondary");
     const mw = document.getElementById("musicWave");
     const audio = document.getElementById("musicAudio");
     mw.innerHTML = "";
@@ -735,6 +798,7 @@
       mw.appendChild(overlay);
       mw.classList.add("has-audio");
       mc.style.display = "flex";
+      ms.style.display = "flex";
       idbGet(doc.musicKey).then(async b => {
         if (!b) return;
         const url = await blobUrl(doc.musicKey);
@@ -751,6 +815,7 @@
       ph.textContent = "No track yet. Write a prompt, then Generate.";
       mw.appendChild(ph);
       mc.style.display = "none";
+      ms.style.display = "none";
       audio.removeAttribute("src");
     }
   }
@@ -1378,6 +1443,262 @@
     if (e.key === "ArrowRight") gotoFrame(playState.idx + 1);
     if (e.key === "ArrowLeft") gotoFrame(playState.idx - 1);
   });
+
+  // --- MP4 export ---
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
+  function drawCover(ctx, img, w, h) {
+    const iAR = img.width / img.height;
+    const cAR = w / h;
+    let dw, dh, dx, dy;
+    if (iAR > cAR) { dh = h; dw = h * iAR; dx = (w - dw) / 2; dy = 0; }
+    else            { dw = w; dh = w / iAR; dx = 0; dy = (h - dh) / 2; }
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+  function wrapText(ctx, text, x, y, maxWidth, lineHeight, anchor = "middle") {
+    const words = text.split(/\s+/);
+    const lines = []; let line = "";
+    for (const word of words) {
+      const test = line + (line ? " " : "") + word;
+      if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = word; }
+      else line = test;
+    }
+    if (line) lines.push(line);
+    let startY;
+    if (anchor === "bottom") startY = y - (lines.length - 1) * lineHeight;
+    else if (anchor === "top") startY = y;
+    else startY = y - (lines.length - 1) * lineHeight / 2;
+    for (let i = 0; i < lines.length; i++) {
+      ctx.fillText(lines[i], x, startY + i * lineHeight);
+    }
+    return lines.length;
+  }
+
+  function renderExportFrame(ctx, W, H, f) {
+    if (f.img) {
+      drawCover(ctx, f.img, W, H);
+    } else {
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, W, H);
+      if (f.description) {
+        ctx.font = '500 56px -apple-system, "Segoe UI", system-ui, sans-serif';
+        ctx.textAlign = "center"; ctx.fillStyle = "#ececec";
+        wrapText(ctx, f.description, W/2, H/2, W - 240, 72);
+      }
+    }
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, "rgba(0,0,0,0.45)");
+    grad.addColorStop(0.32, "rgba(0,0,0,0)");
+    grad.addColorStop(0.68, "rgba(0,0,0,0)");
+    grad.addColorStop(1, "rgba(0,0,0,0.75)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+    ctx.font = '500 26px "Roboto Mono", ui-monospace, monospace';
+    ctx.textAlign = "left"; ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fillText(`FRAME ${f.idx} / ${f.total}`, 56, 76);
+    if (f.subtitle) {
+      ctx.font = '600 56px -apple-system, "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = "center"; ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "rgba(0,0,0,0.95)";
+      ctx.shadowBlur = 18; ctx.shadowOffsetY = 3;
+      wrapText(ctx, f.subtitle, W/2, H - 140, W - 240, 72, "bottom");
+      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    }
+  }
+
+  function showExportStatus(initial) {
+    let el = document.getElementById("exportStatus");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "exportStatus"; el.className = "export-status";
+      el.innerHTML = `<span class="label">${initial}</span><div class="bar"><div></div></div><span class="pct">0%</span>`;
+      document.body.appendChild(el);
+    } else {
+      el.querySelector(".label").textContent = initial;
+    }
+    return el;
+  }
+  function updateExportStatus(el, label, pct) {
+    el.querySelector(".label").textContent = label;
+    el.querySelector(".bar > div").style.width = `${pct}%`;
+    el.querySelector(".pct").textContent = `${Math.round(pct)}%`;
+  }
+  function hideExportStatus() {
+    const el = document.getElementById("exportStatus");
+    if (el) el.remove();
+  }
+
+  async function exportStoryboard() {
+    const doc = activeDoc();
+    if (!doc.frames.length) { alert("No frames to export."); return; }
+
+    const W = 2560, H = 1440, FPS = 30;
+    const btn = document.getElementById("downloadBtn");
+    btn.disabled = true;
+    const status = showExportStatus("Preparing assets…");
+
+    try {
+      const total = doc.frames.length;
+      // Pre-load all assets
+      const frameAssets = [];
+      const decodeCtx = new (window.AudioContext || window.webkitAudioContext)();
+      for (let i = 0; i < doc.frames.length; i++) {
+        updateExportStatus(status, `Loading frame ${i+1} / ${total}…`, (i / total) * 10);
+        const f = doc.frames[i];
+        let img = null;
+        if (f.imageKey) {
+          const u = await blobUrl(f.imageKey);
+          if (u) { try { img = await loadImage(u); } catch {} }
+        }
+        let voiceBuf = null;
+        if (f.audioKey) {
+          const blob = await idbGet(f.audioKey);
+          if (blob) {
+            try {
+              const ab = await blob.arrayBuffer();
+              voiceBuf = await decodeCtx.decodeAudioData(ab.slice(0));
+            } catch (e) { console.warn("voice decode failed", e); }
+          }
+        }
+        const duration = voiceBuf ? voiceBuf.duration : (f.duration || 1);
+        frameAssets.push({
+          img, voiceBuf, subtitle: f.subtitle, description: f.description,
+          duration, idx: i+1, total
+        });
+      }
+
+      let musicBuf = null;
+      if (doc.musicKey) {
+        updateExportStatus(status, "Loading soundtrack…", 12);
+        const blob = await idbGet(doc.musicKey);
+        if (blob) {
+          try {
+            const ab = await blob.arrayBuffer();
+            musicBuf = await decodeCtx.decodeAudioData(ab.slice(0));
+          } catch (e) { console.warn("music decode failed", e); }
+        }
+      }
+      await decodeCtx.close();
+
+      const frameStarts = []; let t = 0;
+      for (const a of frameAssets) { frameStarts.push(t); t += a.duration; }
+      const totalDuration = t;
+      if (totalDuration <= 0) throw new Error("Storyboard has zero duration.");
+
+      // Canvas
+      const canvas = document.createElement("canvas");
+      canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext("2d", { alpha: false });
+      ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+
+      // Audio mixing
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const dest = audioCtx.createMediaStreamDestination();
+
+      // Streams
+      const canvasStream = canvas.captureStream(FPS);
+      const stream = new MediaStream([
+        canvasStream.getVideoTracks()[0],
+        ...dest.stream.getAudioTracks()
+      ]);
+
+      const candidates = [
+        'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
+        'video/mp4;codecs=avc1',
+        'video/mp4',
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm'
+      ];
+      let mimeType = "";
+      for (const c of candidates) { if (MediaRecorder.isTypeSupported(c)) { mimeType = c; break; } }
+      if (!mimeType) throw new Error("Browser doesn't support MediaRecorder for video export.");
+
+      const recorder = new MediaRecorder(stream, {
+        mimeType,
+        videoBitsPerSecond: 10_000_000,
+        audioBitsPerSecond: 192_000
+      });
+      const chunks = [];
+      recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+
+      const result = await new Promise((resolve, reject) => {
+        recorder.onerror = (e) => reject(new Error("MediaRecorder error: " + (e.error && e.error.message || "unknown")));
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, { type: mimeType });
+          const ext = mimeType.startsWith("video/mp4") ? "mp4" : "webm";
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${store.active.replace(/[^\w-]+/g, "_")}.${ext}`;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 2000);
+          resolve({ ext });
+        };
+
+        recorder.start(1000);
+
+        const t0 = audioCtx.currentTime + 0.15;
+
+        if (musicBuf) {
+          const src = audioCtx.createBufferSource();
+          src.buffer = musicBuf; src.loop = true;
+          const gain = audioCtx.createGain();
+          gain.gain.value = 0.45;
+          src.connect(gain).connect(dest);
+          src.start(t0);
+          src.stop(t0 + totalDuration);
+        }
+        for (let i = 0; i < frameAssets.length; i++) {
+          const a = frameAssets[i];
+          if (a.voiceBuf) {
+            const src = audioCtx.createBufferSource();
+            src.buffer = a.voiceBuf;
+            src.connect(dest);
+            src.start(t0 + frameStarts[i]);
+          }
+        }
+
+        renderExportFrame(ctx, W, H, frameAssets[0]);
+
+        const draw = () => {
+          const elapsed = audioCtx.currentTime - t0;
+          if (elapsed >= totalDuration) {
+            updateExportStatus(status, "Finalizing…", 99);
+            setTimeout(() => { try { recorder.stop(); } catch (e) { reject(e); } }, 400);
+            return;
+          }
+          if (elapsed < 0) { requestAnimationFrame(draw); return; }
+          let curIdx = 0;
+          for (let i = 0; i < frameStarts.length; i++) if (elapsed >= frameStarts[i]) curIdx = i;
+          renderExportFrame(ctx, W, H, frameAssets[curIdx]);
+          const pct = Math.min(98, (elapsed / totalDuration) * 100);
+          updateExportStatus(status, `Rendering · ${elapsed.toFixed(1)}s / ${totalDuration.toFixed(1)}s · frame ${curIdx+1}/${frameAssets.length}`, pct);
+          requestAnimationFrame(draw);
+        };
+        requestAnimationFrame(draw);
+      });
+
+      hideExportStatus();
+      if (result.ext === "webm") {
+        alert("Saved as .webm — your browser doesn't support direct MP4 from MediaRecorder. WebM plays in most modern apps; you can convert with HandBrake or ffmpeg if needed.");
+      }
+      await audioCtx.close();
+    } catch (e) {
+      console.error(e);
+      alert("Export failed: " + e.message);
+      hideExportStatus();
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  document.getElementById("downloadBtn").addEventListener("click", exportStoryboard);
 
   function renderAll() { renderDocPicker(); renderMusic(); renderEditor(); }
 
