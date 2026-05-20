@@ -224,7 +224,7 @@
   .frame-head .spacer { flex: 1; }
   .frame-head .dur { display: flex; align-items: center; gap: 4px; font-size: 10px; }
   .frame-head .dur input {
-    width: 56px; padding: 4px 8px; font-size: 11px; text-align: center;
+    width: 66px; padding: 4px 8px; font-size: 11px; text-align: center;
     font-family: var(--mono); border-radius: 999px;
   }
   .frame-head .remove {
@@ -257,8 +257,10 @@
     position: relative;
     display: flex; align-items: center; justify-content: center;
   }
-  .img-preview img {
+  .img-preview img,
+  .img-preview video {
     width: 100%; height: 100%; object-fit: cover; display: block;
+    background: #050505;
   }
   .img-preview .placeholder {
     color: #444; font-family: var(--mono); font-size: 10px;
@@ -376,6 +378,12 @@
     position: absolute; inset: 0;
     background-size: cover; background-position: center; background-color: #000;
   }
+  .player .img-stage video {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%; object-fit: cover;
+    display: none;
+  }
+  .player .img-stage.has-video video { display: block; }
   .player .img-stage::after {
     content: ""; position: absolute; inset: 0;
     background: linear-gradient(to top, rgba(0,0,0,.7) 0%, transparent 35%, transparent 65%, rgba(0,0,0,.4) 100%);
@@ -546,7 +554,7 @@
 
 <div class="player" id="player" style="display:none">
   <div class="stage">
-    <div class="img-stage" id="playerImgStage"></div>
+    <div class="img-stage" id="playerImgStage"><video id="playerVideo" muted loop playsinline></video></div>
     <div class="frameno" id="playerFrameNo"></div>
     <button class="btn close" id="closeBtn">Close ✕</button>
     <div class="description" id="playerDesc"></div>
@@ -602,7 +610,7 @@
     };
   }
   function makeFrame(duration) {
-    return { description:"", subtitle:"", duration, imageKey:"", imageHistory:[], audioKey:"", wave:[] };
+    return { description:"", subtitle:"", duration, imageKey:"", imageHistory:[], mediaTypes:{}, audioKey:"", wave:[] };
   }
 
   // --- IndexedDB for binary blobs ---
@@ -695,6 +703,7 @@
               if (f.wave == null) f.wave = [];
               if (!Array.isArray(f.imageHistory)) f.imageHistory = f.imageKey ? [f.imageKey] : [];
               else if (f.imageKey && !f.imageHistory.includes(f.imageKey)) f.imageHistory.push(f.imageKey);
+              if (!f.mediaTypes || typeof f.mediaTypes !== "object") f.mediaTypes = {};
             }
           }
           return true;
@@ -888,6 +897,11 @@
     }
   }
 
+  function mediaTypeFor(f, key) {
+    return (f.mediaTypes && f.mediaTypes[key]) || "image/jpeg";
+  }
+  function isVideoType(t) { return typeof t === "string" && t.startsWith("video/"); }
+
   function frameImageHtml(f) {
     if (!f.imageKey) {
       return `<div class="placeholder">Write description<br>→ Generate or upload</div>`;
@@ -901,12 +915,16 @@
         <span class="count">${idx+1} / ${total}</span>
         <button data-action="next-image" title="Next version" ${idx>=total-1?"disabled":""}>›</button>
       </div>` : "";
-    return `<img alt="" data-key="${f.imageKey}" />${counter}<div class="corner"><button data-action="clear-image" title="Delete this version">×</button></div>`;
+    const type = mediaTypeFor(f, f.imageKey);
+    const mediaEl = isVideoType(type)
+      ? `<video data-key="${f.imageKey}" muted loop autoplay playsinline></video>`
+      : `<img alt="" data-key="${f.imageKey}" />`;
+    return `${mediaEl}${counter}<div class="corner"><button data-action="clear-image" title="Delete this version">×</button></div>`;
   }
   function hydrateImages(root) {
-    root.querySelectorAll('img[data-key]').forEach(img => {
-      const key = img.dataset.key;
-      blobUrl(key).then(url => { if (url) img.src = url; });
+    root.querySelectorAll('img[data-key],video[data-key]').forEach(el => {
+      const key = el.dataset.key;
+      blobUrl(key).then(url => { if (url) el.src = url; });
     });
   }
 
@@ -1052,7 +1070,7 @@
       imgPreview.classList.remove("drag-over-file");
       const file = e.dataTransfer.files && e.dataTransfer.files[0];
       if (!file) return;
-      if (!file.type.startsWith("image/")) { alert("That doesn't look like an image file."); return; }
+      if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) { alert("That doesn't look like an image or video file."); return; }
       const frameIdx = parseInt(imgPreview.dataset.img, 10);
       await handleImageUpload(frameIdx, file);
       return;
@@ -1127,9 +1145,11 @@
       const f = doc.frames[i];
       const history = Array.isArray(f.imageHistory) ? f.imageHistory : [];
       const idx = history.indexOf(f.imageKey);
-      if (f.imageKey) idbDel(f.imageKey).catch(()=>{});
+      const deletedKey = f.imageKey;
+      if (deletedKey) idbDel(deletedKey).catch(()=>{});
       if (idx >= 0) history.splice(idx, 1);
       f.imageHistory = history;
+      if (f.mediaTypes) delete f.mediaTypes[deletedKey];
       f.imageKey = history.length > 0 ? history[Math.min(idx, history.length - 1)] : "";
       save(); updateFrameImage(i);
     } else if (action === "gen-voice") {
@@ -1418,7 +1438,7 @@
   function triggerImageUpload(frameIdx) {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/*";
+    input.accept = "image/*,video/*";
     input.style.display = "none";
     document.body.appendChild(input);
     input.onchange = async () => {
@@ -1436,13 +1456,26 @@
     const preview = document.querySelector(`[data-img="${i}"]`);
     if (preview) preview.classList.add("loading");
     try {
-      const objUrl = URL.createObjectURL(file);
-      const blob = await urlToCompressedBlob(objUrl, 1280, 0.9);
-      URL.revokeObjectURL(objUrl);
-      const key = newKey("img-upload");
+      const isVideo = file.type.startsWith("video/");
+      let blob, type, prefix;
+      if (isVideo) {
+        // Videos stored as-is; no canvas compression
+        blob = file;
+        type = file.type || "video/mp4";
+        prefix = "vid-upload";
+      } else {
+        const objUrl = URL.createObjectURL(file);
+        blob = await urlToCompressedBlob(objUrl, 1280, 0.9);
+        URL.revokeObjectURL(objUrl);
+        type = "image/jpeg";
+        prefix = "img-upload";
+      }
+      const key = newKey(prefix);
       await idbPut(key, blob);
       if (!Array.isArray(f.imageHistory)) f.imageHistory = [];
+      if (!f.mediaTypes || typeof f.mediaTypes !== "object") f.mediaTypes = {};
       f.imageHistory.push(key);
+      f.mediaTypes[key] = type;
       f.imageKey = key;
       save();
       updateFrameImage(i);
@@ -1468,7 +1501,9 @@
       const key = newKey("img");
       await idbPut(key, blob);
       if (!Array.isArray(f.imageHistory)) f.imageHistory = [];
+      if (!f.mediaTypes || typeof f.mediaTypes !== "object") f.mediaTypes = {};
       f.imageHistory.push(key);
+      f.mediaTypes[key] = "image/jpeg";
       f.imageKey = key;
       save();
       preview.innerHTML = frameImageHtml(f);
@@ -1513,6 +1548,7 @@
   const playerImgStage = document.getElementById("playerImgStage");
   const playerAudio = document.getElementById("playerAudio");
   const playerMusic = document.getElementById("playerMusic");
+  const playerVideo = document.getElementById("playerVideo");
   const progressBar = document.getElementById("progressBar");
   const timeReadout = document.getElementById("timeReadout");
   const playPauseBtn = document.getElementById("playPauseBtn");
@@ -1525,13 +1561,25 @@
 
   async function showFrame(i) {
     const f = frames()[i]; if (!f) return;
+    const type = f.imageKey ? mediaTypeFor(f, f.imageKey) : "";
+    const isVideo = isVideoType(type);
     if (f.imageKey) {
       const url = await blobUrl(f.imageKey);
-      if (url) playerImgStage.style.backgroundImage = `url("${url}")`;
+      if (isVideo) {
+        playerImgStage.style.backgroundImage = "";
+        playerImgStage.classList.add("has-video");
+        if (url) { playerVideo.src = url; playerVideo.currentTime = 0; playerVideo.play().catch(()=>{}); }
+      } else {
+        playerImgStage.classList.remove("has-video");
+        playerVideo.pause(); playerVideo.removeAttribute("src");
+        if (url) playerImgStage.style.backgroundImage = `url("${url}")`;
+      }
       playerDesc.classList.remove("fallback");
       playerDesc.style.display = "none";
     } else {
       playerImgStage.style.backgroundImage = "";
+      playerImgStage.classList.remove("has-video");
+      playerVideo.pause(); playerVideo.removeAttribute("src");
       playerDesc.classList.add("fallback");
       playerDesc.textContent = f.description || "(no description)";
       playerDesc.style.display = "";
@@ -1562,14 +1610,14 @@
   }
   function stopPlayer() {
     playState.playing = false; cancelAnimationFrame(playState.rafId);
-    playerAudio.pause(); playerMusic.pause();
+    playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
     playerEl.style.display = "none";
   }
   function pause() {
     if (!playState.playing) return;
     playState.elapsedInFrame += (performance.now() - playState.startedAt) / 1000;
     playState.playing = false; cancelAnimationFrame(playState.rafId);
-    playerAudio.pause(); playerMusic.pause();
+    playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
     playPauseBtn.textContent = "▶ Play";
   }
   function resume() {
@@ -1577,6 +1625,7 @@
     playState.playing = true; playState.startedAt = performance.now();
     if (playerAudio.src) playerAudio.play().catch(()=>{});
     if (playerMusic.src) playerMusic.play().catch(()=>{});
+    if (playerVideo.src) playerVideo.play().catch(()=>{});
     playPauseBtn.textContent = "⏸ Pause"; tick();
   }
   function gotoFrame(i) {
@@ -1604,7 +1653,7 @@
     if (inFrame >= frameDur) {
       if (playState.idx >= frames().length - 1) {
         progressBar.style.width = "100%"; playState.playing = false;
-        playerAudio.pause(); playerMusic.pause();
+        playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
         playPauseBtn.textContent = "↻ Replay"; return;
       }
       playState.idx += 1; playState.elapsedInFrame = 0; playState.startedAt = performance.now();
@@ -1666,7 +1715,9 @@
   }
 
   function renderExportFrame(ctx, W, H, f) {
-    if (f.img) {
+    if (f.video && f.video.readyState >= 2) {
+      drawCover(ctx, f.video, W, H);
+    } else if (f.img) {
       drawCover(ctx, f.img, W, H);
     } else {
       ctx.fillStyle = "#000";
@@ -1736,10 +1787,25 @@
       for (let i = 0; i < doc.frames.length; i++) {
         updateExportStatus(status, `Loading frame ${i+1} / ${total}…`, (i / total) * 10);
         const f = doc.frames[i];
-        let img = null;
+        let img = null, video = null;
         if (f.imageKey) {
           const u = await blobUrl(f.imageKey);
-          if (u) { try { img = await loadImage(u); } catch {} }
+          if (u) {
+            const type = mediaTypeFor(f, f.imageKey);
+            if (isVideoType(type)) {
+              try {
+                video = document.createElement("video");
+                video.src = u; video.muted = true; video.loop = true; video.playsInline = true;
+                video.crossOrigin = "anonymous";
+                await new Promise((res, rej) => {
+                  video.onloadeddata = res; video.onerror = rej;
+                  setTimeout(rej, 15000);
+                });
+              } catch { video = null; }
+            } else {
+              try { img = await loadImage(u); } catch {}
+            }
+          }
         }
         let voiceBuf = null;
         if (f.audioKey) {
@@ -1753,7 +1819,7 @@
         }
         const duration = voiceBuf ? voiceBuf.duration : (f.duration || 1);
         frameAssets.push({
-          img, voiceBuf, subtitle: f.subtitle, description: f.description,
+          img, video, voiceBuf, subtitle: f.subtitle, description: f.description,
           duration, idx: i+1, total
         });
       }
@@ -1851,17 +1917,31 @@
         }
 
         renderExportFrame(ctx, W, H, frameAssets[0]);
+        if (frameAssets[0].video) { try { frameAssets[0].video.currentTime = 0; frameAssets[0].video.play().catch(()=>{}); } catch {} }
+        let lastVideoIdx = frameAssets[0].video ? 0 : -1;
 
         const draw = () => {
           const elapsed = audioCtx.currentTime - t0;
           if (elapsed >= totalDuration) {
             updateExportStatus(status, "Finalizing…", 99);
+            frameAssets.forEach(a => { if (a.video) try { a.video.pause(); } catch {} });
             setTimeout(() => { try { recorder.stop(); } catch (e) { reject(e); } }, 400);
             return;
           }
           if (elapsed < 0) { requestAnimationFrame(draw); return; }
           let curIdx = 0;
           for (let i = 0; i < frameStarts.length; i++) if (elapsed >= frameStarts[i]) curIdx = i;
+          if (curIdx !== lastVideoIdx) {
+            if (lastVideoIdx >= 0 && frameAssets[lastVideoIdx] && frameAssets[lastVideoIdx].video) {
+              try { frameAssets[lastVideoIdx].video.pause(); } catch {}
+            }
+            if (frameAssets[curIdx] && frameAssets[curIdx].video) {
+              try { frameAssets[curIdx].video.currentTime = 0; frameAssets[curIdx].video.play().catch(()=>{}); } catch {}
+              lastVideoIdx = curIdx;
+            } else {
+              lastVideoIdx = -1;
+            }
+          }
           renderExportFrame(ctx, W, H, frameAssets[curIdx]);
           const pct = Math.min(98, (elapsed / totalDuration) * 100);
           updateExportStatus(status, `Rendering · ${elapsed.toFixed(1)}s / ${totalDuration.toFixed(1)}s · frame ${curIdx+1}/${frameAssets.length}`, pct);
