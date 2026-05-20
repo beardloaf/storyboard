@@ -255,7 +255,20 @@
     letter-spacing: 1.4px; color: var(--muted); font-weight: 500;
   }
   .col-head .btn.tiny { padding: 3px 8px; font-size: 10px; }
-  .col-head-actions { display: flex; gap: 4px; }
+  .col-head-actions { display: flex; gap: 4px; align-items: center; }
+  .gen-toggle {
+    display: inline-flex; padding: 2px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 999px;
+  }
+  .gen-toggle button {
+    background: transparent; border: none; color: var(--muted);
+    padding: 3px 9px; font-family: var(--mono); font-size: 10px;
+    letter-spacing: .5px; border-radius: 999px; cursor: pointer;
+    text-transform: uppercase;
+  }
+  .gen-toggle button.active { background: var(--accent); color: #fff; }
+  .gen-toggle button:not(.active):hover { color: var(--text); }
 
   /* Image preview */
   .img-preview {
@@ -593,6 +606,7 @@
     <div class="subtitle" id="playerSub"></div>
     <audio id="playerAudio"></audio>
     <audio id="playerMusic" loop></audio>
+    <audio id="playerSfx" loop></audio>
   </div>
   <div class="progress"><div class="bar" id="progressBar"></div></div>
   <div class="controls">
@@ -632,7 +646,9 @@
     githubToken: "",
     githubRepo: "beardloaf/storyboard",
     voiceId: "pNInz6obpgDQGcFmaJgB",
-    bflModel: "flux-pro-1.1"
+    bflModel: "flux-pro-1.1",
+    bflVideoModel: "flux-pro-video",
+    videoDuration: 5
   };
 
   function blankDoc() {
@@ -645,7 +661,7 @@
     };
   }
   function makeFrame(duration) {
-    return { description:"", subtitle:"", duration, imageKey:"", imageHistory:[], mediaTypes:{}, audioKey:"", wave:[] };
+    return { description:"", subtitle:"", duration, imageKey:"", imageHistory:[], mediaTypes:{}, audioKey:"", sfxKey:"", wave:[], genMode:"image" };
   }
 
   // --- IndexedDB for binary blobs ---
@@ -735,10 +751,12 @@
             for (const f of d.frames) {
               if (f.imageKey == null) f.imageKey = "";
               if (f.audioKey == null) f.audioKey = "";
+              if (f.sfxKey == null) f.sfxKey = "";
               if (f.wave == null) f.wave = [];
               if (!Array.isArray(f.imageHistory)) f.imageHistory = f.imageKey ? [f.imageKey] : [];
               else if (f.imageKey && !f.imageHistory.includes(f.imageKey)) f.imageHistory.push(f.imageKey);
               if (!f.mediaTypes || typeof f.mediaTypes !== "object") f.mediaTypes = {};
+              if (!f.genMode) f.genMode = "image";
             }
           }
           return true;
@@ -1097,7 +1115,11 @@
             <div class="col-head">
               <label>What you see</label>
               <div class="col-head-actions">
-                <button class="btn tiny" data-action="upload-image" data-i="${i}" title="Upload image">⬆ Upload</button>
+                <div class="gen-toggle">
+                  <button data-action="set-mode" data-i="${i}" data-mode="image" class="${f.genMode!=="video"?"active":""}" title="Generate a still">Img</button>
+                  <button data-action="set-mode" data-i="${i}" data-mode="video" class="${f.genMode==="video"?"active":""}" title="Generate a video clip">Vid</button>
+                </div>
+                <button class="btn tiny" data-action="upload-image" data-i="${i}" title="Upload image or video">⬆</button>
                 <button class="btn tiny" data-action="gen-image" data-i="${i}">⚡ Generate</button>
               </div>
             </div>
@@ -1270,6 +1292,13 @@
       save(); renderEditor();
     } else if (action === "gen-image") {
       await handleGenerateImage(i, btn);
+    } else if (action === "set-mode") {
+      const mode = btn.dataset.mode === "video" ? "video" : "image";
+      doc.frames[i].genMode = mode;
+      save();
+      // Toggle active classes locally without a full re-render so we don't lose focus/scroll
+      const wrap = btn.closest(".gen-toggle");
+      if (wrap) wrap.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.mode === mode));
     } else if (action === "upload-image") {
       triggerImageUpload(i);
     } else if (action === "prev-image") {
@@ -1480,11 +1509,15 @@
       <p style="margin-top:6px;font-size:11px;color:var(--muted)">Create a PAT at <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a> (fine-grained or classic — needs Contents: read+write on this repo). Shares are stored as JSON files in <code>shares/</code>.</p>
       <label>Voice</label>
       <select id="setVoice">${voiceOpts}</select>
-      <label>BFL model</label>
+      <label>BFL image model</label>
       <select id="setBflModel">
         <option value="flux-pro-1.1" ${settings.bflModel==="flux-pro-1.1"?"selected":""}>flux-pro-1.1 (fast)</option>
         <option value="flux-pro-1.1-ultra" ${settings.bflModel==="flux-pro-1.1-ultra"?"selected":""}>flux-pro-1.1-ultra (higher quality)</option>
       </select>
+      <label>BFL video model (used when a frame's toggle is set to Vid)</label>
+      <input id="setBflVideoModel" type="text" placeholder="flux-pro-video" value="${escapeHtml(settings.bflVideoModel || "")}" />
+      <label>Video duration (seconds)</label>
+      <input id="setVideoDuration" type="number" min="1" max="30" step="1" value="${settings.videoDuration || 5}" />
       <div class="actions">
         <button class="btn ghost" id="modalCancel">Cancel</button>
         <button class="btn primary" id="modalOk">Save</button>
@@ -1498,6 +1531,8 @@
       settings.githubRepo = document.getElementById("setGhRepo").value.trim() || "beardloaf/storyboard";
       settings.voiceId = document.getElementById("setVoice").value;
       settings.bflModel = document.getElementById("setBflModel").value;
+      settings.bflVideoModel = document.getElementById("setBflVideoModel").value.trim() || "flux-pro-video";
+      settings.videoDuration = Math.max(1, parseInt(document.getElementById("setVideoDuration").value || "5", 10));
       saveSettings(); hideModal();
     });
     document.getElementById("modalCancel").addEventListener("click", hideModal);
@@ -1505,6 +1540,75 @@
   document.getElementById("settingsBtn").addEventListener("click", showSettings);
 
   // --- API calls ---
+  async function callBflVideo(prompt) {
+    if (!settings.bflProxyUrl) {
+      throw new Error("Set BFL Proxy URL in ⚙ API keys — BFL blocks browser calls so a Cloudflare Worker proxy is required.");
+    }
+    const cinePrompt = `Cinematic shot, anamorphic widescreen, photorealistic, natural lighting, shallow depth of field, color graded, subtle camera motion. ${prompt}`;
+    const base = settings.bflProxyUrl.replace(/\/+$/, "");
+    const url = `${base}/v1/${settings.bflVideoModel}`;
+    const body = {
+      prompt: cinePrompt,
+      aspect_ratio: "16:9",
+      duration: settings.videoDuration || 5,
+      seed: Math.floor(Math.random() * 1e9)
+    };
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-key": settings.bflKey, "accept": "application/json" },
+        body: JSON.stringify(body)
+      });
+    } catch (e) {
+      throw new Error(`Network error calling BFL video endpoint. (${e.message})`);
+    }
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`BFL video ${res.status}: ${t.slice(0,300)}\n\nIf the model name is wrong, update "BFL Video model" in ⚙ API keys (current: ${settings.bflVideoModel}).`);
+    }
+    const job = await res.json();
+    const pollUrl = job.polling_url || `${base}/v1/get_result?id=${job.id}`;
+    const deadline = Date.now() + 240000;
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 2500));
+      let pr;
+      try {
+        pr = await fetch(pollUrl, { headers: { "x-key": settings.bflKey, "accept": "application/json" } });
+      } catch (e) {
+        throw new Error(`Network error polling BFL video. (${e.message})`);
+      }
+      if (!pr.ok) { const t = await pr.text(); throw new Error(`BFL video poll ${pr.status}: ${t.slice(0,200)}`); }
+      const pj = await pr.json();
+      if (pj.status === "Ready" && pj.result && (pj.result.sample || pj.result.video || pj.result.url)) {
+        return pj.result.sample || pj.result.video || pj.result.url;
+      }
+      if (pj.status && /error|failed|content_moderated/i.test(pj.status)) {
+        throw new Error(`BFL video: ${pj.status}${pj.details ? " — " + JSON.stringify(pj.details) : ""}`);
+      }
+    }
+    throw new Error("BFL video timed out");
+  }
+
+  async function callElevenLabsSfx(prompt, durationSec) {
+    const url = `https://api.elevenlabs.io/v1/sound-generation`;
+    const body = {
+      text: `Subtle ambient sound design, no music, very low key: ${prompt}`,
+      duration_seconds: Math.max(0.5, Math.min(22, durationSec || 5)),
+      prompt_influence: 0.4
+    };
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "xi-api-key": settings.elevenKey, "Accept": "audio/mpeg" },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`ElevenLabs SFX ${res.status}: ${t.slice(0,300)}`);
+    }
+    return res.blob();
+  }
+
   async function callBflFlux(prompt) {
     const cinePrompt = `Cinematic film still, anamorphic widescreen, 35mm film grain, natural lighting, shallow depth of field, color graded, photorealistic, atmospheric. ${prompt}`;
     if (!settings.bflProxyUrl) {
@@ -1648,16 +1752,28 @@
     const preview = document.querySelector(`[data-img="${i}"]`);
     preview.classList.add("loading");
 
-    // Run BFL generation and TMDb stills search in parallel
-    const bflTask = (async () => {
-      const imgUrl = await callBflFlux(f.description);
-      const blob = await urlToCompressedBlob(imgUrl, 1280, 0.85);
-      const key = newKey("img");
-      await idbPut(key, blob);
-      return key;
+    const isVideoMode = f.genMode === "video";
+
+    // Main generation: image OR video
+    const mainTask = (async () => {
+      if (isVideoMode) {
+        const videoUrl = await callBflVideo(f.description);
+        // Download the video bytes (use proxy fallback in case CDN blocks browser CORS)
+        const blob = await fetchImageWithFallback(videoUrl);
+        const key = newKey("vid");
+        await idbPut(key, blob);
+        return { key, type: blob.type || "video/mp4" };
+      } else {
+        const imgUrl = await callBflFlux(f.description);
+        const blob = await urlToCompressedBlob(imgUrl, 1280, 0.85);
+        const key = newKey("img");
+        await idbPut(key, blob);
+        return { key, type: "image/jpeg" };
+      }
     })();
 
-    const stillsTask = (async () => {
+    // For images, also fetch movie stills. Skip for videos.
+    const stillsTask = isVideoMode ? Promise.resolve([]) : (async () => {
       const urls = await searchMovieStills(f.description, 3);
       const keys = [];
       for (const url of urls) {
@@ -1674,17 +1790,30 @@
       return keys;
     })();
 
-    const [bflRes, stillsRes] = await Promise.allSettled([bflTask, stillsTask]);
+    // For videos, also generate subtle ambient SFX
+    const sfxTask = (isVideoMode && settings.elevenKey) ? (async () => {
+      try {
+        const blob = await callElevenLabsSfx(f.description, settings.videoDuration || 5);
+        const key = newKey("sfx");
+        await idbPut(key, blob);
+        return key;
+      } catch (e) {
+        console.warn("SFX generation skipped", e);
+        return null;
+      }
+    })() : Promise.resolve(null);
+
+    const [mainRes, stillsRes, sfxRes] = await Promise.allSettled([mainTask, stillsTask, sfxTask]);
 
     try {
       if (!Array.isArray(f.imageHistory)) f.imageHistory = [];
       if (!f.mediaTypes || typeof f.mediaTypes !== "object") f.mediaTypes = {};
 
       let primaryKey = null;
-      if (bflRes.status === "fulfilled") {
-        const key = bflRes.value;
+      if (mainRes.status === "fulfilled") {
+        const { key, type } = mainRes.value;
         f.imageHistory.push(key);
-        f.mediaTypes[key] = "image/jpeg";
+        f.mediaTypes[key] = type;
         primaryKey = key;
       }
       if (stillsRes.status === "fulfilled") {
@@ -1694,6 +1823,11 @@
           if (!primaryKey) primaryKey = key;
         }
       }
+      if (sfxRes.status === "fulfilled" && sfxRes.value) {
+        // Clean up any previous SFX
+        if (f.sfxKey) idbDel(f.sfxKey).catch(()=>{});
+        f.sfxKey = sfxRes.value;
+      }
 
       if (primaryKey) {
         f.imageKey = primaryKey;
@@ -1701,8 +1835,8 @@
         preview.innerHTML = frameImageHtml(f);
         hydrateImages(preview);
       } else {
-        const msg = bflRes.status === "rejected" ? bflRes.reason && bflRes.reason.message : "Generation failed.";
-        alert("Image generation failed: " + msg);
+        const msg = mainRes.status === "rejected" ? mainRes.reason && mainRes.reason.message : "Generation failed.";
+        alert((isVideoMode ? "Video" : "Image") + " generation failed: " + msg);
       }
     } finally {
       preview.classList.remove("loading");
@@ -1742,6 +1876,7 @@
   const playerImgStage = document.getElementById("playerImgStage");
   const playerAudio = document.getElementById("playerAudio");
   const playerMusic = document.getElementById("playerMusic");
+  const playerSfx = document.getElementById("playerSfx");
   const playerVideo = document.getElementById("playerVideo");
   const progressBar = document.getElementById("progressBar");
   const timeReadout = document.getElementById("timeReadout");
@@ -1788,6 +1923,16 @@
     } else {
       playerAudio.removeAttribute("src");
     }
+    // SFX: subtle ambient sound during video frames
+    if (isVideo && f.sfxKey) {
+      const url = await blobUrl(f.sfxKey);
+      playerSfx.src = url; playerSfx.volume = 0.45; playerSfx.currentTime = 0;
+      if (playState.playing) playerSfx.play().catch(()=>{});
+    } else {
+      playerSfx.pause(); playerSfx.removeAttribute("src");
+    }
+    // Duck the music way down on video frames so the sound design comes through.
+    if (playerMusic.src) playerMusic.volume = isVideo ? 0.08 : 0.45;
   }
 
   async function startPlayer() {
@@ -1804,14 +1949,14 @@
   }
   function stopPlayer() {
     playState.playing = false; cancelAnimationFrame(playState.rafId);
-    playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
+    playerAudio.pause(); playerMusic.pause(); playerVideo.pause(); playerSfx.pause();
     playerEl.style.display = "none";
   }
   function pause() {
     if (!playState.playing) return;
     playState.elapsedInFrame += (performance.now() - playState.startedAt) / 1000;
     playState.playing = false; cancelAnimationFrame(playState.rafId);
-    playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
+    playerAudio.pause(); playerMusic.pause(); playerVideo.pause(); playerSfx.pause();
     playPauseBtn.textContent = "▶ Play";
   }
   function resume() {
@@ -1820,6 +1965,7 @@
     if (playerAudio.src) playerAudio.play().catch(()=>{});
     if (playerMusic.src) playerMusic.play().catch(()=>{});
     if (playerVideo.src) playerVideo.play().catch(()=>{});
+    if (playerSfx.src) playerSfx.play().catch(()=>{});
     playPauseBtn.textContent = "⏸ Pause"; tick();
   }
   function gotoFrame(i) {
@@ -1847,7 +1993,7 @@
     if (inFrame >= frameDur) {
       if (playState.idx >= frames().length - 1) {
         progressBar.style.width = "100%"; playState.playing = false;
-        playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
+        playerAudio.pause(); playerMusic.pause(); playerVideo.pause(); playerSfx.pause();
         playPauseBtn.textContent = "↻ Replay"; return;
       }
       playState.idx += 1; playState.elapsedInFrame = 0; playState.startedAt = performance.now();
@@ -2327,14 +2473,14 @@
     }
     function stop() {
       st.playing = false; cancelAnimationFrame(st.rafId);
-      playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
+      playerAudio.pause(); playerMusic.pause(); playerVideo.pause(); playerSfx.pause();
       playerEl.style.display = "none";
     }
     function pause() {
       if (!st.playing) return;
       st.elapsedInFrame += (performance.now() - st.startedAt) / 1000;
       st.playing = false; cancelAnimationFrame(st.rafId);
-      playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
+      playerAudio.pause(); playerMusic.pause(); playerVideo.pause(); playerSfx.pause();
       playPauseBtn.textContent = "▶ Play";
     }
     function resume() {
@@ -2364,7 +2510,7 @@
       if (inFrame >= frameDur) {
         if (st.idx >= frames().length - 1) {
           progressBar.style.width = "100%"; st.playing = false;
-          playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
+          playerAudio.pause(); playerMusic.pause(); playerVideo.pause(); playerSfx.pause();
           playPauseBtn.textContent = "↻ Replay"; return;
         }
         st.idx += 1; st.elapsedInFrame = 0; st.startedAt = performance.now();
@@ -2528,9 +2674,20 @@
             } catch (e) { console.warn("voice decode failed", e); }
           }
         }
+        let sfxBuf = null;
+        if (f.sfxKey && video) {
+          const blob = await idbGet(f.sfxKey);
+          if (blob) {
+            try {
+              const ab = await blob.arrayBuffer();
+              sfxBuf = await decodeCtx.decodeAudioData(ab.slice(0));
+            } catch (e) { console.warn("sfx decode failed", e); }
+          }
+        }
         const duration = voiceBuf ? voiceBuf.duration : (f.duration || 1);
         frameAssets.push({
-          img, video, voiceBuf, subtitle: f.subtitle, description: f.description,
+          img, video, voiceBuf, sfxBuf, isVideo: !!video,
+          subtitle: f.subtitle, description: f.description,
           duration, idx: i+1, total
         });
       }
@@ -2608,12 +2765,13 @@
 
         const t0 = audioCtx.currentTime + 0.15;
 
+        let musicGain = null;
         if (musicBuf) {
           const src = audioCtx.createBufferSource();
           src.buffer = musicBuf; src.loop = true;
-          const gain = audioCtx.createGain();
-          gain.gain.value = 0.45;
-          src.connect(gain).connect(dest);
+          musicGain = audioCtx.createGain();
+          musicGain.gain.value = 0.45;
+          src.connect(musicGain).connect(dest);
           src.start(t0);
           src.stop(t0 + totalDuration);
         }
@@ -2624,6 +2782,25 @@
             src.buffer = a.voiceBuf;
             src.connect(dest);
             src.start(t0 + frameStarts[i]);
+          }
+          if (a.sfxBuf) {
+            const src = audioCtx.createBufferSource();
+            src.buffer = a.sfxBuf; src.loop = true;
+            const g = audioCtx.createGain(); g.gain.value = 0.45;
+            src.connect(g).connect(dest);
+            const start = t0 + frameStarts[i];
+            const stop = t0 + frameStarts[i] + a.duration;
+            src.start(start);
+            src.stop(stop);
+          }
+          // Duck the music whenever a video frame is active
+          if (musicGain && a.isVideo) {
+            const start = t0 + frameStarts[i];
+            const end = t0 + frameStarts[i] + a.duration;
+            musicGain.gain.setValueAtTime(0.45, Math.max(0, start - 0.1));
+            musicGain.gain.linearRampToValueAtTime(0.08, start);
+            musicGain.gain.setValueAtTime(0.08, end - 0.1);
+            musicGain.gain.linearRampToValueAtTime(0.45, end);
           }
         }
 
