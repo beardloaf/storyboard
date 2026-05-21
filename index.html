@@ -18,13 +18,30 @@
     --line-2: #353535;
     --text: #ececec;
     --muted: #8a8a8a;
+    --media-bg: #050505;        /* near-black for image / wave preview backdrops */
+    --controls-bg: rgba(13,13,13,0.92);
     --accent: #4d7c5a;          /* hunter green */
-    --accent-soft: #5f9170;     /* lighter for hover / highlights */
+    --accent-soft: #5f9170;
     --accent-rgb: 77, 124, 90;
     --accent-2: #d9d9d9;
     --danger: #ff5d5d;
     --good: #6ed18a;
     --mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f6f4;
+    --panel: #ffffff;
+    --panel-2: #f0efea;
+    --line: #d9d6cf;
+    --line-2: #c4c0b6;
+    --text: #1a1a1a;
+    --muted: #6a6a6a;
+    --media-bg: #e8e6df;
+    --controls-bg: rgba(255,255,255,0.92);
+    --accent: #3e6648;
+    --accent-soft: #4d7c5a;
+    --accent-rgb: 62, 102, 72;
+    --accent-2: #1a1a1a;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -81,6 +98,8 @@
   }
   .brand { display: flex; align-items: center; height: 22px; }
   .brand img { max-height: 22px; display: block; }
+  .brand-row { flex-direction: row !important; align-items: center; gap: 8px; }
+  .brand-row .spacer { flex: 1; }
 
   .doc-picker { display: flex; align-items: center; gap: 6px; }
   .doc-picker select {
@@ -149,7 +168,7 @@
   .music .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .music input { font-size: 13px; }
   .music .wave-mini {
-    height: 56px; background: #050505; border: 1px solid var(--line);
+    height: 56px; background: var(--media-bg); border: 1px solid var(--line);
     border-radius: 6px; padding: 4px; position: relative;
     overflow: hidden;
   }
@@ -190,6 +209,27 @@
   .main-actions {
     display: flex; justify-content: flex-end; align-items: center;
     gap: 8px; margin-bottom: 20px;
+  }
+  .floating-actions {
+    position: fixed; top: 14px; right: 18px; z-index: 90;
+    display: flex; align-items: center; gap: 6px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    backdrop-filter: blur(8px);
+    animation: floatingIn .18s ease-out;
+  }
+  .floating-actions .btn {
+    width: 36px; height: 36px; padding: 0;
+    border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px;
+  }
+  @keyframes floatingIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   /* Editor */
@@ -283,7 +323,7 @@
 
   /* Image preview */
   .img-preview {
-    background: #050505; border: 1px solid var(--line);
+    background: var(--media-bg); border: 1px solid var(--line);
     border-radius: 8px; overflow: hidden;
     aspect-ratio: 16 / 9; margin-bottom: 0;
     position: relative;
@@ -292,7 +332,7 @@
   .img-preview img,
   .img-preview video {
     width: 100%; height: 100%; object-fit: cover; display: block;
-    background: #050505;
+    background: var(--media-bg);
   }
   .img-preview .placeholder {
     color: #444; font-family: var(--mono); font-size: 10px;
@@ -379,7 +419,7 @@
 
   /* Waveform */
   .wave-preview {
-    background: #050505; border: 1px solid var(--line);
+    background: var(--media-bg); border: 1px solid var(--line);
     border-radius: 8px; padding: 6px 8px;
     margin-bottom: 0;
     height: 56px;
@@ -400,6 +440,10 @@
     display: flex; gap: 4px; align-items: center; margin: 0;
   }
   .wave-controls .btn.tiny { padding: 3px 6px; font-size: 10px; }
+  .wave-controls .audio-count {
+    font-family: var(--mono); font-size: 10px; color: var(--muted);
+    letter-spacing: .5px;
+  }
 
   .col textarea {
     min-height: 92px; flex: none;
@@ -558,7 +602,7 @@
   }
   .share-tile .thumb {
     aspect-ratio: 16 / 9;
-    background: #050505;
+    background: var(--media-bg);
     position: relative; overflow: hidden;
   }
   .share-tile .thumb img,
@@ -632,7 +676,7 @@
   /* Bottom control bar — sticky modern player */
   .share-controls {
     position: fixed; left: 0; right: 0; bottom: 0;
-    background: rgba(13, 13, 13, 0.92);
+    background: var(--controls-bg);
     backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     border-top: 1px solid var(--line);
     padding: 12px 24px;
@@ -736,8 +780,11 @@
 <body>
 <div class="app">
   <aside class="side-panel">
-    <div class="section">
+    <div class="section brand-row">
       <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
+      <span class="spacer"></span>
+      <button class="btn icon" id="themeBtn" title="Toggle light / dark">☀</button>
+      <button class="btn icon" id="settingsBtn" title="Settings, API keys, voice">⚙</button>
     </div>
 
     <div class="section">
@@ -754,12 +801,8 @@
     <div class="section-divider"></div>
 
     <div class="section">
-      <button class="btn" id="genAllImagesBtn" title="Generate images for every frame that has a description and no image yet">⚡ Generate all images</button>
-      <button class="btn" id="genAllAudioBtn" title="Generate voiceovers for every frame that has a subtitle and no audio yet">⚡ Generate all voiceovers</button>
-    </div>
-
-    <div class="section">
-      <button class="btn" id="settingsBtn" title="Settings, API keys, voice">⚙ Settings</button>
+      <button class="btn" id="genAllImagesBtn" title="Regenerate images for every frame that has a description">⚡ Generate all images</button>
+      <button class="btn" id="genAllAudioBtn" title="Regenerate voiceovers for every frame that has a subtitle">⚡ Generate all voiceovers</button>
     </div>
 
     <div class="section-divider"></div>
@@ -784,11 +827,17 @@
     </div>
   </aside>
 
+  <div id="floatingActions" class="floating-actions" style="display:none">
+    <button class="btn primary" data-trigger="playBtn" title="Play (P)">▶</button>
+    <button class="btn" data-trigger="shareBtn" title="Share link">↗</button>
+    <button class="btn" data-trigger="downloadBtn" title="Download">⬇</button>
+  </div>
+
   <main>
-    <div class="main-actions">
+    <div class="main-actions" id="mainActions">
       <button class="btn primary" id="playBtn">▶ Play</button>
       <button class="btn" id="shareBtn">↗ Share link</button>
-      <button class="btn" id="downloadBtn">⬇ Download MP4 (2K)</button>
+      <button class="btn" id="downloadBtn">⬇ Download</button>
     </div>
     <div class="editor">
       <div id="frames" class="frames"></div>
@@ -871,7 +920,7 @@
     };
   }
   function makeFrame(duration) {
-    return { description:"", subtitle:"", duration, imageKey:"", imageHistory:[], mediaTypes:{}, audioKey:"", wave:[] };
+    return { description:"", subtitle:"", duration, imageKey:"", imageHistory:[], mediaTypes:{}, audioKey:"", audioHistory:[], wave:[] };
   }
 
   // --- IndexedDB for binary blobs ---
@@ -964,6 +1013,8 @@
               if (f.wave == null) f.wave = [];
               if (!Array.isArray(f.imageHistory)) f.imageHistory = f.imageKey ? [f.imageKey] : [];
               else if (f.imageKey && !f.imageHistory.includes(f.imageKey)) f.imageHistory.push(f.imageKey);
+              if (!Array.isArray(f.audioHistory)) f.audioHistory = f.audioKey ? [f.audioKey] : [];
+              else if (f.audioKey && !f.audioHistory.includes(f.audioKey)) f.audioHistory.push(f.audioKey);
               if (!f.mediaTypes || typeof f.mediaTypes !== "object") f.mediaTypes = {};
             }
           }
@@ -1333,8 +1384,16 @@
           <div class="col">
             <div class="wave-preview" data-wave="${i}"><canvas></canvas></div>
             <div class="wave-controls" data-wavectl="${i}" style="display:${f.audioKey ? "flex" : "none"}">
+              ${(() => {
+                const ah = Array.isArray(f.audioHistory) ? f.audioHistory : [];
+                const aidx = ah.indexOf(f.audioKey);
+                if (ah.length <= 1) return "";
+                return `<button class="btn tiny" data-action="prev-audio" data-i="${i}" ${aidx<=0?"disabled":""}>‹</button>
+                  <span class="audio-count">${aidx+1}/${ah.length}</span>
+                  <button class="btn tiny" data-action="next-audio" data-i="${i}" ${aidx>=ah.length-1?"disabled":""}>›</button>`;
+              })()}
               <button class="btn tiny" data-action="play-audio" data-i="${i}">▶ Preview</button>
-              <button class="btn tiny" data-action="clear-audio" data-i="${i}">Clear</button>
+              <button class="btn tiny" data-action="clear-audio" data-i="${i}">Delete</button>
             </div>
             <div class="col-head">
               <label>What you hear</label>
@@ -1545,9 +1604,29 @@
       const f = doc.frames[i]; if (!f.audioKey) return;
       const url = await blobUrl(f.audioKey);
       const a = document.getElementById("prevAudio"); a.src = url; a.play();
+    } else if (action === "prev-audio") {
+      const f = doc.frames[i];
+      const h = Array.isArray(f.audioHistory) ? f.audioHistory : [];
+      const idx = h.indexOf(f.audioKey);
+      if (idx > 0) { await switchActiveAudio(f, h[idx - 1]); save(); renderEditor(); }
+    } else if (action === "next-audio") {
+      const f = doc.frames[i];
+      const h = Array.isArray(f.audioHistory) ? f.audioHistory : [];
+      const idx = h.indexOf(f.audioKey);
+      if (idx >= 0 && idx < h.length - 1) { await switchActiveAudio(f, h[idx + 1]); save(); renderEditor(); }
     } else if (action === "clear-audio") {
-      if (doc.frames[i].audioKey) idbDel(doc.frames[i].audioKey).catch(()=>{});
-      doc.frames[i].audioKey = ""; doc.frames[i].wave = [];
+      const f = doc.frames[i];
+      const h = Array.isArray(f.audioHistory) ? f.audioHistory : [];
+      const idx = h.indexOf(f.audioKey);
+      const deleted = f.audioKey;
+      if (deleted) idbDel(deleted).catch(()=>{});
+      if (idx >= 0) h.splice(idx, 1);
+      f.audioHistory = h;
+      if (h.length > 0) {
+        await switchActiveAudio(f, h[Math.min(idx, h.length - 1)]);
+      } else {
+        f.audioKey = ""; f.wave = [];
+      }
       save(); renderEditor();
     }
   });
@@ -1644,15 +1723,20 @@
         }
         if (!nf.imageKey && nf.imageHistory.length > 0) nf.imageKey = nf.imageHistory[0];
 
-        if (f.audioKey) {
-          const blob = await idbGet(f.audioKey);
-          if (blob) {
-            const k = newKey("audio");
-            await idbPut(k, blob);
-            nf.audioKey = k;
-          }
+        const audioHist = Array.isArray(f.audioHistory) && f.audioHistory.length
+          ? f.audioHistory
+          : (f.audioKey ? [f.audioKey] : []);
+        nf.audioHistory = [];
+        for (const oldKey of audioHist) {
+          const blob = await idbGet(oldKey);
+          if (!blob) continue;
+          const k = newKey("audio");
+          await idbPut(k, blob);
+          nf.audioHistory.push(k);
+          if (oldKey === f.audioKey) nf.audioKey = k;
           tick(`Frame ${i+1}: copying voice…`);
         }
+        if (!nf.audioKey && nf.audioHistory.length > 0) nf.audioKey = nf.audioHistory[0];
         newDoc.frames.push(nf);
       }
 
@@ -2046,6 +2130,17 @@
       if (btn) btn.disabled = false;
     }
   }
+  async function switchActiveAudio(f, key) {
+    const blob = await idbGet(key);
+    if (!blob) return;
+    f.audioKey = key;
+    try {
+      const { peaks, duration } = await computeWaveform(blob, 96);
+      f.wave = peaks;
+      f.duration = Math.round(duration * 100) / 100;
+    } catch (e) { console.warn("wave recompute failed", e); }
+  }
+
   async function handleGenerateVoice(i, btn) {
     const doc = activeDoc();
     const f = doc.frames[i];
@@ -2057,9 +2152,10 @@
     try {
       const blob = await callElevenLabs(f.subtitle);
       const { peaks, duration } = await computeWaveform(blob, 96);
-      if (f.audioKey) idbDel(f.audioKey).catch(()=>{});
       const key = newKey("audio");
       await idbPut(key, blob);
+      if (!Array.isArray(f.audioHistory)) f.audioHistory = [];
+      f.audioHistory.push(key);
       f.audioKey = key; f.wave = peaks;
       f.duration = Math.round(duration * 100) / 100;
       save(); renderEditor();
@@ -2131,6 +2227,7 @@
         </div>
         <div class="time" id="ctrlTime">0:00 / 0:00</div>
         <div class="progress" id="ctrlProgress"><div class="bar" id="ctrlProgressBar"></div></div>
+        <button class="view-toggle" id="ctrlSpeed" title="Playback speed">1×</button>
         <button class="view-toggle" id="viewToggle" title="Switch view (V)">▦ Grid</button>
       </div>`;
     document.body.appendChild(overlay);
@@ -2543,7 +2640,7 @@
         duration: fb.duration || 5,
         wave: fb.wave || [],
         imageKey: "", imageHistory: [], mediaTypes: {},
-        audioKey: ""
+        audioKey: "", audioHistory: []
       };
       if (fb.image) {
         const blob = dataUrlToBlobSync(fb.image);
@@ -2561,6 +2658,7 @@
           const key = `share-${slug}-audio-${i}`;
           await idbPut(key, blob);
           f.audioKey = key;
+          f.audioHistory = [key];
         }
       }
       doc.frames.push(f);
@@ -2761,6 +2859,21 @@
     prevBtn.addEventListener("click", () => gotoFrame(st.idx - 1));
     nextBtn.addEventListener("click", () => gotoFrame(st.idx + 1));
     restartBtn.addEventListener("click", restart);
+
+    // Playback speed (cycles 1× → 1.5× → 2× → 1×)
+    let speed = 1;
+    const speedBtn = document.getElementById("ctrlSpeed");
+    const stageVideoEl = document.getElementById("stageVideo");
+    function applySpeed(s) {
+      speed = s;
+      playerAudio.playbackRate = s;
+      playerMusic.playbackRate = s;
+      if (stageVideoEl) stageVideoEl.playbackRate = s;
+      speedBtn.textContent = (s === 1 ? "1×" : s === 1.5 ? "1.5×" : "2×");
+    }
+    speedBtn.addEventListener("click", () => {
+      applySpeed(speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1);
+    });
 
     document.addEventListener("keydown", (e) => {
       if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
@@ -3071,13 +3184,13 @@
     const doc = activeDoc();
     const targets = [];
     doc.frames.forEach((f, i) => {
-      if (f.description.trim() && !f.imageKey) targets.push(i);
+      if (f.description.trim()) targets.push(i);
     });
     if (targets.length === 0) {
-      alert("Nothing to do — every frame with a description already has an image. Use the per-frame ⚡ button to regenerate a specific one.");
+      alert("No frames have a description to generate from.");
       return;
     }
-    if (!confirm(`Generate images for ${targets.length} frame${targets.length === 1 ? "" : "s"}? Each takes ~10–30s.`)) return;
+    if (!confirm(`Generate images for ${targets.length} frame${targets.length === 1 ? "" : "s"}? Existing versions stay in the catalogue. Each takes ~10–30s.`)) return;
     const btn = document.getElementById("genAllImagesBtn"); btn.disabled = true;
     const status = showExportStatus(`Generating image 1 of ${targets.length}…`);
     let done = 0, failed = 0;
@@ -3105,13 +3218,13 @@
     const doc = activeDoc();
     const targets = [];
     doc.frames.forEach((f, i) => {
-      if (f.subtitle.trim() && !f.audioKey) targets.push(i);
+      if (f.subtitle.trim()) targets.push(i);
     });
     if (targets.length === 0) {
-      alert("Nothing to do — every frame with a subtitle already has a voiceover. Use the per-frame ⚡ button to regenerate.");
+      alert("No frames have a subtitle to generate from.");
       return;
     }
-    if (!confirm(`Generate voiceovers for ${targets.length} frame${targets.length === 1 ? "" : "s"}?`)) return;
+    if (!confirm(`Generate voiceovers for ${targets.length} frame${targets.length === 1 ? "" : "s"}? Existing versions stay in the catalogue.`)) return;
     const btn = document.getElementById("genAllAudioBtn"); btn.disabled = true;
     const status = showExportStatus(`Generating voice 1 of ${targets.length}…`);
     let done = 0, failed = 0;
@@ -3138,6 +3251,39 @@
   document.getElementById("genAllAudioBtn").addEventListener("click", generateAllAudio);
 
   function renderAll() { renderDocPicker(); renderMusic(); renderEditor(); }
+
+  // --- theme ---
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    const btn = document.getElementById("themeBtn");
+    if (btn) btn.textContent = theme === "dark" ? "☀" : "🌙";
+  }
+  (function initTheme() {
+    const saved = localStorage.getItem("storyboard.theme") || "dark";
+    applyTheme(saved);
+  })();
+  document.getElementById("themeBtn").addEventListener("click", () => {
+    const next = (document.documentElement.dataset.theme === "dark") ? "light" : "dark";
+    applyTheme(next);
+    localStorage.setItem("storyboard.theme", next);
+  });
+
+  // --- floating actions on scroll ---
+  (function initFloating() {
+    const target = document.getElementById("mainActions");
+    const floater = document.getElementById("floatingActions");
+    if (!target || !floater) return;
+    floater.addEventListener("click", (e) => {
+      const trigger = e.target.closest("[data-trigger]");
+      if (!trigger) return;
+      const real = document.getElementById(trigger.dataset.trigger);
+      if (real) real.click();
+    });
+    const observer = new IntersectionObserver(([entry]) => {
+      floater.style.display = entry.isIntersecting ? "none" : "flex";
+    }, { rootMargin: "-1px 0px 0px 0px", threshold: 0 });
+    observer.observe(target);
+  })();
 
   // --- init ---
   loadSettings();
