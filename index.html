@@ -72,14 +72,31 @@
   }
   main {
     min-width: 0;
-    margin-left: 348px; /* 320 panel + 14 gap each side */
-    padding: 14px 28px 40px;
+    margin-left: 348px;
+    padding: 92px 28px 40px; /* room for the fixed topbar */
   }
 
-  /* Floating left panel — detached, rounded card */
+  /* Top bar — full-width floating header */
+  .topbar {
+    position: fixed; top: 14px; left: 14px; right: 14px;
+    height: 64px;
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 10px 32px rgba(0,0,0,.25);
+    z-index: 50;
+  }
+  .topbar .brand { flex: 0 0 auto; }
+  .topbar .doc-picker { position: relative; display: flex; gap: 8px; align-items: center; min-width: 220px; max-width: 360px; flex: 1 1 280px; }
+  .topbar-spacer { flex: 1; }
+  .topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+  /* Floating left panel — detached, rounded card; starts below the topbar */
   .side-panel {
     position: fixed;
-    top: 14px; left: 14px; bottom: 14px;
+    top: 92px; left: 14px; bottom: 14px;
     width: 320px;
     border-radius: 18px;
     border: 1px solid var(--line);
@@ -95,8 +112,17 @@
     display: flex; flex-direction: column; gap: 12px;
   }
   .side-panel .section.music {
+    flex: 0 0 auto;
+    transition: flex .2s;
+  }
+  .side-panel .section.music.expanded {
     flex: 1; min-height: 0;
   }
+  .music-expanded {
+    display: flex; flex-direction: column;
+    gap: 10px; flex: 1; min-height: 0;
+  }
+  .music-expanded textarea { flex: 1; min-height: 120px; }
   .side-panel .section-divider {
     height: 1px; background: var(--line); margin: 6px -6px;
   }
@@ -838,26 +864,26 @@
 </head>
 <body>
 <div class="app">
+  <header class="topbar">
+    <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
+    <div class="doc-picker">
+      <button class="doc-trigger" id="docTrigger" type="button">
+        <span class="doc-name" id="docName">Untitled</span>
+        <span class="chevron">🔽</span>
+      </button>
+      <button class="btn icon" id="newDoc" title="New storyboard">➕</button>
+      <div class="doc-menu" id="docMenu" style="display:none"></div>
+    </div>
+    <button class="btn" id="settingsBtn" title="Settings, API keys, voice">⚙️ Settings</button>
+    <span class="topbar-spacer"></span>
+    <div class="topbar-actions">
+      <button class="btn primary" id="playBtn">▶️ Play</button>
+      <button class="btn" id="shareBtn">📤 Share link</button>
+      <button class="btn" id="downloadBtn">⬇️ Download</button>
+    </div>
+  </header>
+
   <aside class="side-panel">
-    <div class="section brand-row">
-      <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
-      <span class="spacer"></span>
-      <button class="btn" id="settingsBtn" title="Settings, API keys, voice">⚙ Settings</button>
-    </div>
-
-    <div class="section">
-      <div class="doc-picker">
-        <button class="doc-trigger" id="docTrigger" type="button">
-          <span class="doc-name" id="docName">Untitled</span>
-          <span class="chevron">▾</span>
-        </button>
-        <button class="btn icon" id="newDoc" title="New storyboard">+</button>
-        <div class="doc-menu" id="docMenu" style="display:none"></div>
-      </div>
-    </div>
-
-    <div class="section-divider"></div>
-
     <div class="section">
       <button class="btn" id="genAllImagesBtn" title="Regenerate images for every frame that has a description">⚡ Generate all images</button>
       <button class="btn" id="genAllAudioBtn" title="Regenerate voiceovers for every frame that has a subtitle">⚡ Generate all voiceovers</button>
@@ -865,42 +891,34 @@
 
     <div class="section-divider"></div>
 
-    <div class="section music">
-      <div class="soundtrack-header" id="musicSecondary" style="--has:0">
+    <div class="section music" id="musicSection">
+      <div class="soundtrack-header" id="musicSecondary">
         <span class="label-mono">Soundtrack</span>
         <span class="spacer" style="flex:1"></span>
-        <button class="btn tiny icon" id="musicPrev" title="Previous track">‹</button>
+        <button class="btn tiny icon" id="musicPrev" title="Previous track">⬅️</button>
         <span class="music-count" id="musicCount"></span>
-        <button class="btn tiny icon" id="musicNext" title="Next track">›</button>
-        <button class="btn tiny icon" id="clearMusic" title="Delete track">🗑</button>
+        <button class="btn tiny icon" id="musicNext" title="Next track">➡️</button>
+        <button class="btn tiny icon" id="clearMusic" title="Delete track">🗑️</button>
       </div>
       <div class="wave-mini" id="musicWave">
-        <div class="placeholder">No track yet. Write a prompt, then Generate.</div>
+        <div class="placeholder">No track yet. Expand to write a prompt.</div>
       </div>
       <div class="row" id="musicControls" style="display:none">
-        <button class="btn tiny" id="musicPlayPause" title="Play/Pause">▶ Play</button>
-        <button class="btn tiny icon" id="musicStop" title="Stop">⏹</button>
-        <button class="btn tiny icon" id="musicRestart" title="Restart">↻</button>
+        <button class="btn tiny" id="musicPlayPause" title="Play/Pause">▶️ Play</button>
+        <button class="btn tiny icon" id="musicStop" title="Stop">⏹️</button>
+        <button class="btn tiny icon" id="musicRestart" title="Restart">🔄</button>
         <span class="music-time" id="musicTime">0:00 / 0:00</span>
       </div>
-      <button class="btn primary" id="genMusic">⚡ Generate</button>
-      <textarea id="musicPrompt" placeholder="Cinematic ambient, slow strings, melancholic… (describe genre, mood, instruments, tempo)"></textarea>
+      <button class="btn" id="musicExpandBtn">🔽 Expand</button>
+      <div class="music-expanded" id="musicExpanded" style="display:none">
+        <textarea id="musicPrompt" placeholder="Cinematic ambient, slow strings, melancholic… (describe genre, mood, instruments, tempo)"></textarea>
+        <button class="btn primary" id="genMusic">⚡ Generate</button>
+      </div>
       <audio id="musicAudio" preload="metadata"></audio>
     </div>
   </aside>
 
-  <div id="floatingActions" class="floating-actions" style="display:none">
-    <button class="btn primary" data-trigger="playBtn" title="Play (P)">▶</button>
-    <button class="btn" data-trigger="shareBtn" title="Share link">↗</button>
-    <button class="btn" data-trigger="downloadBtn" title="Download">⬇</button>
-  </div>
-
   <main>
-    <div class="main-actions" id="mainActions">
-      <button class="btn primary" id="playBtn">▶ Play</button>
-      <button class="btn" id="shareBtn">↗ Share link</button>
-      <button class="btn" id="downloadBtn">⬇ Download</button>
-    </div>
     <div class="editor">
       <div id="frames" class="frames"></div>
       <div class="add-row">
@@ -1331,9 +1349,9 @@
       row.className = "doc-item" + (name === store.active ? " active" : "");
       row.innerHTML = `
         <button class="doc-item-name" data-doc-action="select" data-name="${safe}">${safe}</button>
-        <button class="doc-item-action" data-doc-action="rename"    data-name="${safe}" title="Rename">✎</button>
-        <button class="doc-item-action" data-doc-action="duplicate" data-name="${safe}" title="Duplicate">⧉</button>
-        <button class="doc-item-action" data-doc-action="delete"    data-name="${safe}" title="Delete">🗑</button>`;
+        <button class="doc-item-action" data-doc-action="rename"    data-name="${safe}" title="Rename">✏️</button>
+        <button class="doc-item-action" data-doc-action="duplicate" data-name="${safe}" title="Duplicate">📋</button>
+        <button class="doc-item-action" data-doc-action="delete"    data-name="${safe}" title="Delete">🗑️</button>`;
       docMenu.appendChild(row);
     });
   }
@@ -1402,12 +1420,12 @@
         drawWaveform(c, peaks);
         audio.addEventListener("loadedmetadata", updateMusicTime, { once: true });
       }).catch(()=>{});
-      document.getElementById("musicPlayPause").textContent = audio.paused ? "▶ Play" : "⏸ Pause";
+      document.getElementById("musicPlayPause").textContent = audio.paused ? "▶️ Play" : "⏸️ Pause";
     } else {
       mw.classList.remove("has-audio");
       const ph = document.createElement("div");
       ph.className = "placeholder";
-      ph.textContent = "No track yet. Write a prompt, then Generate.";
+      ph.textContent = "No track yet. Expand to write a prompt.";
       mw.appendChild(ph);
       mc.style.display = "none";
       countEl.textContent = "";
@@ -1416,6 +1434,9 @@
       clearBtn.style.display = "none";
       audio.removeAttribute("src");
     }
+    // Auto-expand if there's no track yet so the prompt input is reachable
+    const sectionAlreadyExpanded = document.getElementById("musicSection").classList.contains("expanded");
+    if (!doc.musicKey && !sectionAlreadyExpanded) setMusicExpanded(true);
   }
 
   function mediaTypeFor(f, key) {
@@ -1478,7 +1499,7 @@
             <div class="col-head">
               <label>What you see</label>
               <div class="col-head-actions">
-                <button class="btn tiny" data-action="upload-image" data-i="${i}" title="Upload image">⬆ Upload</button>
+                <button class="btn tiny" data-action="upload-image" data-i="${i}" title="Upload image">⬆️ Upload</button>
                 <button class="btn tiny" data-action="gen-image" data-i="${i}">⚡ Generate</button>
               </div>
             </div>
@@ -1937,6 +1958,19 @@
       renderMusic();
     } finally { btn.disabled = false; }
   });
+  function setMusicExpanded(expanded) {
+    const section = document.getElementById("musicSection");
+    const panel = document.getElementById("musicExpanded");
+    const btn = document.getElementById("musicExpandBtn");
+    section.classList.toggle("expanded", expanded);
+    panel.style.display = expanded ? "flex" : "none";
+    btn.textContent = expanded ? "🔼 Collapse" : "🔽 Expand";
+  }
+  document.getElementById("musicExpandBtn").addEventListener("click", () => {
+    const expanded = document.getElementById("musicSection").classList.contains("expanded");
+    setMusicExpanded(!expanded);
+  });
+
   document.getElementById("clearMusic").addEventListener("click", () => {
     const doc = activeDoc();
     const audio = document.getElementById("musicAudio");
@@ -1984,9 +2018,9 @@
     musicAudio.currentTime = 0; musicAudio.play().catch(()=>{});
   });
   musicAudio.addEventListener("timeupdate", updateMusicTime);
-  musicAudio.addEventListener("play",  () => musicPlayPauseBtn.textContent = "⏸ Pause");
-  musicAudio.addEventListener("pause", () => musicPlayPauseBtn.textContent = "▶ Play");
-  musicAudio.addEventListener("ended", () => { musicPlayPauseBtn.textContent = "▶ Play"; updateMusicTime(); });
+  musicAudio.addEventListener("play",  () => musicPlayPauseBtn.textContent = "⏸️ Pause");
+  musicAudio.addEventListener("pause", () => musicPlayPauseBtn.textContent = "▶️ Play");
+  musicAudio.addEventListener("ended", () => { musicPlayPauseBtn.textContent = "▶️ Play"; updateMusicTime(); });
   musicAudio.addEventListener("loadedmetadata", updateMusicTime);
 
   // Scrub via clicking the waveform
@@ -2368,7 +2402,7 @@
           <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
           <h1>${escapeHtml(name || "Untitled")}</h1>
           <div class="meta">${doc.frames.length} FRAME${doc.frames.length === 1 ? "" : "S"} · ${totalDur.toFixed(1)}S</div>
-          ${closeable ? `<button class="btn" id="overlayClose">Close ✕</button>` : ""}
+          ${closeable ? `<button class="btn" id="overlayClose">❌ Close</button>` : ""}
         </div>
         <div class="share-content">
           <div class="share-grid">${tiles}</div>
@@ -2386,15 +2420,15 @@
       </div>
       <div class="share-controls">
         <div class="transport">
-          <button id="ctrlRestart" title="Restart (R)">↻</button>
-          <button id="ctrlPrev" title="Previous frame (←)">⏮</button>
-          <button id="ctrlPlayPause" class="play" title="Play / Pause (Space)">▶</button>
-          <button id="ctrlNext" title="Next frame (→)">⏭</button>
+          <button id="ctrlRestart" title="Restart (R)">🔄</button>
+          <button id="ctrlPrev" title="Previous frame (←)">⏮️</button>
+          <button id="ctrlPlayPause" class="play" title="Play / Pause (Space)">▶️</button>
+          <button id="ctrlNext" title="Next frame (→)">⏭️</button>
         </div>
         <div class="time" id="ctrlTime">0:00 / 0:00</div>
         <div class="progress" id="ctrlProgress"><div class="bar" id="ctrlProgressBar"></div></div>
         <button class="view-toggle" id="ctrlSpeed" title="Playback speed">1×</button>
-        <button class="view-toggle" id="viewToggle" title="Switch view (V)">▦ Grid</button>
+        <button class="view-toggle" id="viewToggle" title="Switch view (V)">🔲 Grid</button>
       </div>`;
     document.body.appendChild(overlay);
     hydrateImages(overlay);
@@ -2929,7 +2963,7 @@
     async function play() {
       if (frames().length === 0) return;
       // Restart from beginning if we ended
-      if (playBtn.textContent === "↻") {
+      if (playBtn.textContent === "🔁") {
         st.idx = 0; st.elapsedInFrame = 0;
         await showFrame(0);
         if (playerMusic.src) playerMusic.currentTime = 0;
@@ -2939,7 +2973,7 @@
       if (playerAudio.src) playerAudio.play().catch(()=>{});
       if (playerMusic.src) playerMusic.play().catch(()=>{});
       if (stageVideo.src) stageVideo.play().catch(()=>{});
-      playBtn.textContent = "⏸";
+      playBtn.textContent = "⏸️";
       tick();
     }
     function pauseTransport() {
@@ -2947,10 +2981,10 @@
       st.elapsedInFrame += (performance.now() - st.startedAt) / 1000;
       st.playing = false; cancelAnimationFrame(st.rafId);
       playerAudio.pause(); playerMusic.pause(); stageVideo.pause();
-      playBtn.textContent = "▶";
+      playBtn.textContent = "▶️";
     }
     function togglePlay() {
-      if (playBtn.textContent === "↻") { play(); return; }
+      if (playBtn.textContent === "🔁") { play(); return; }
       st.playing ? pauseTransport() : play();
     }
     function gotoFrame(i) {
@@ -2993,7 +3027,7 @@
         if (st.idx >= frames().length - 1) {
           ctrlProgressBar.style.width = "100%"; st.playing = false;
           playerAudio.pause(); playerMusic.pause(); stageVideo.pause();
-          playBtn.textContent = "↻";
+          playBtn.textContent = "🔁";
           return;
         }
         st.idx += 1; st.elapsedInFrame = 0; st.startedAt = performance.now();
@@ -3028,7 +3062,7 @@
     // View toggle
     function setView(mode) {
       shareView.dataset.mode = mode;
-      viewToggle.innerHTML = mode === "theatre" ? "▦ Grid" : "⛶ Theatre";
+      viewToggle.innerHTML = mode === "theatre" ? "🔲 Grid" : "🎬 Theatre";
       if (mode === "theatre") updateStage(st.idx);
       else highlightActiveTile(st.idx);
     }
@@ -3435,23 +3469,6 @@
   document.getElementById("genAllAudioBtn").addEventListener("click", generateAllAudio);
 
   function renderAll() { renderDocPicker(); renderMusic(); renderEditor(); }
-
-  // --- floating actions on scroll ---
-  (function initFloating() {
-    const target = document.getElementById("mainActions");
-    const floater = document.getElementById("floatingActions");
-    if (!target || !floater) return;
-    floater.addEventListener("click", (e) => {
-      const trigger = e.target.closest("[data-trigger]");
-      if (!trigger) return;
-      const real = document.getElementById(trigger.dataset.trigger);
-      if (real) real.click();
-    });
-    const observer = new IntersectionObserver(([entry]) => {
-      floater.style.display = entry.isIntersecting ? "none" : "flex";
-    }, { rootMargin: "-1px 0px 0px 0px", threshold: 0 });
-    observer.observe(target);
-  })();
 
   // --- init ---
   loadSettings();
