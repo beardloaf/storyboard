@@ -746,6 +746,7 @@
         <select id="docSelect" title="Storyboard"></select>
         <button class="btn icon" id="newDoc" title="New">+</button>
         <button class="btn icon" id="renameDoc" title="Rename">✎</button>
+        <button class="btn icon" id="duplicateDoc" title="Duplicate">⧉</button>
         <button class="btn icon" id="deleteDoc" title="Delete">🗑</button>
       </div>
     </div>
@@ -1576,6 +1577,98 @@
     store.active = finalName;
     save(); renderAll();
   });
+  document.getElementById("duplicateDoc").addEventListener("click", async () => {
+    const sourceName = store.active;
+    const source = store.docs[sourceName];
+    if (!source) return;
+    const newName = uniqueName(`${sourceName} copy`);
+    const status = showExportStatus("Duplicating…");
+    try {
+      // Count assets so we can show a meaningful progress bar
+      const totalAssets =
+        (source.musicKey ? 1 : 0) +
+        source.frames.reduce((s, f) =>
+          s + (Array.isArray(f.imageHistory) ? f.imageHistory.length : (f.imageKey ? 1 : 0))
+            + (f.audioKey ? 1 : 0), 0);
+      let done = 0;
+      const tick = (label) => {
+        done++;
+        const pct = totalAssets > 0 ? Math.min(99, (done / totalAssets) * 100) : 50;
+        updateExportStatus(status, label, pct);
+      };
+
+      const newDoc = {
+        totalSec: source.totalSec || 60,
+        frameSec: source.frameSec || 5,
+        musicPrompt: source.musicPrompt || "",
+        musicKey: "",
+        frames: []
+      };
+
+      // Duplicate music blob
+      if (source.musicKey) {
+        const blob = await idbGet(source.musicKey);
+        if (blob) {
+          const k = newKey("music");
+          await idbPut(k, blob);
+          newDoc.musicKey = k;
+        }
+        tick("Copying soundtrack…");
+      }
+
+      // Duplicate every frame + its blobs
+      for (let i = 0; i < source.frames.length; i++) {
+        const f = source.frames[i];
+        const nf = {
+          description: f.description || "",
+          subtitle: f.subtitle || "",
+          duration: f.duration || 5,
+          imageKey: "",
+          imageHistory: [],
+          mediaTypes: {},
+          audioKey: "",
+          wave: Array.isArray(f.wave) ? [...f.wave] : []
+        };
+        const history = Array.isArray(f.imageHistory) && f.imageHistory.length
+          ? f.imageHistory
+          : (f.imageKey ? [f.imageKey] : []);
+        for (const oldKey of history) {
+          const blob = await idbGet(oldKey);
+          if (!blob) continue;
+          const k = newKey("img");
+          await idbPut(k, blob);
+          nf.imageHistory.push(k);
+          nf.mediaTypes[k] = (f.mediaTypes && f.mediaTypes[oldKey]) || blob.type || "image/jpeg";
+          if (oldKey === f.imageKey) nf.imageKey = k;
+          tick(`Frame ${i+1}: copying media…`);
+        }
+        if (!nf.imageKey && nf.imageHistory.length > 0) nf.imageKey = nf.imageHistory[0];
+
+        if (f.audioKey) {
+          const blob = await idbGet(f.audioKey);
+          if (blob) {
+            const k = newKey("audio");
+            await idbPut(k, blob);
+            nf.audioKey = k;
+          }
+          tick(`Frame ${i+1}: copying voice…`);
+        }
+        newDoc.frames.push(nf);
+      }
+
+      store.docs[newName] = newDoc;
+      store.active = newName;
+      save();
+      updateExportStatus(status, "Done", 100);
+      setTimeout(hideExportStatus, 400);
+      renderAll();
+    } catch (e) {
+      console.error(e);
+      hideExportStatus();
+      alert("Duplicate failed: " + e.message);
+    }
+  });
+
   document.getElementById("deleteDoc").addEventListener("click", () => {
     const names = Object.keys(store.docs);
     if (names.length <= 1) { alert("Can't delete your only storyboard."); return; }
