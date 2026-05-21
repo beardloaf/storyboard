@@ -1441,6 +1441,31 @@
   }
 
   // --- event wiring ---
+  // Double-click in the gap between frames → insert a new frame at that position
+  framesEl.addEventListener("dblclick", (e) => {
+    if (e.target !== framesEl) return; // only fire when the click lands in the grid gap, not on a frame
+    const doc = activeDoc();
+    let insertAt = doc.frames.length;
+    const frameEls = framesEl.querySelectorAll(".frame");
+    for (let i = 0; i < frameEls.length; i++) {
+      const rect = frameEls[i].getBoundingClientRect();
+      const above = e.clientY < rect.top;
+      const sameRowLeftOf = e.clientY >= rect.top && e.clientY < rect.bottom && e.clientX < rect.left;
+      if (above || sameRowLeftOf) { insertAt = i; break; }
+    }
+    doc.frames.splice(insertAt, 0, makeFrame(doc.frameSec || 5));
+    save();
+    renderEditor();
+    requestAnimationFrame(() => {
+      const newRow = framesEl.querySelector(`.frame[data-frame-idx="${insertAt}"]`);
+      if (newRow) {
+        newRow.scrollIntoView({ behavior: "smooth", block: "center" });
+        const ta = newRow.querySelector('textarea[data-k="description"]');
+        if (ta) ta.focus();
+      }
+    });
+  });
+
   // --- drag-and-drop frame reordering ---
   let dragSrcIdx = null;
   framesEl.addEventListener("dragstart", e => {
