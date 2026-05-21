@@ -443,10 +443,6 @@
     display: none;
   }
   .player .img-stage.has-video video { display: block; }
-  .player .img-stage::after {
-    content: ""; position: absolute; inset: 0;
-    background: linear-gradient(to top, rgba(0,0,0,.7) 0%, transparent 35%, transparent 65%, rgba(0,0,0,.4) 100%);
-  }
   .player .frameno {
     position: absolute; top: 24px; left: 28px; z-index: 2;
     color: rgba(255,255,255,.7); font-size: 12px;
@@ -611,11 +607,6 @@
     display: none;
   }
   .share-stage.has-video video { display: block; }
-  .share-stage::after {
-    content: ""; position: absolute; inset: 0;
-    background: linear-gradient(to top, rgba(0,0,0,.7) 0%, transparent 35%, transparent 65%, rgba(0,0,0,.4) 100%);
-    pointer-events: none;
-  }
   .share-stage .stage-frameno {
     position: absolute; top: 20px; left: 22px; z-index: 2;
     font-family: var(--mono); font-size: 11px; letter-spacing: 2px;
@@ -2878,13 +2869,6 @@
         wrapText(ctx, f.description, W/2, H/2, W - 240, 72);
       }
     }
-    const grad = ctx.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, "rgba(0,0,0,0.45)");
-    grad.addColorStop(0.32, "rgba(0,0,0,0)");
-    grad.addColorStop(0.68, "rgba(0,0,0,0)");
-    grad.addColorStop(1, "rgba(0,0,0,0.75)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
     ctx.font = '500 26px "Roboto Mono", ui-monospace, monospace';
     ctx.textAlign = "left"; ctx.fillStyle = "rgba(255,255,255,0.7)";
     ctx.fillText(`FRAME ${f.idx} / ${f.total}`, 56, 76);
