@@ -76,23 +76,54 @@
     padding: 92px 28px 40px; /* room for the fixed topbar */
   }
 
-  /* Top bar — bare row, no container chrome */
+  /* Top bar — bare row */
   .topbar {
-    position: fixed; top: 14px; left: 14px; right: 14px;
+    position: fixed; top: 14px; left: 14px; right: 28px;   /* right matches main's right padding */
     height: 64px;
     display: flex; align-items: center; gap: 14px;
     z-index: 50;
+    padding-left: 8px;
   }
-  /* Left cluster matches the side panel's 320px width so it stacks visually */
-  .topbar-left {
-    width: 320px; flex: 0 0 320px;
-    display: flex; align-items: center; gap: 8px;
-    min-width: 0;
-  }
-  .topbar .brand { flex: 0 0 auto; }
-  .topbar .doc-picker { position: relative; display: flex; gap: 6px; align-items: center; flex: 1 1 auto; min-width: 0; }
   .topbar-spacer { flex: 1; }
-  .topbar-actions { display: flex; align-items: center; gap: 8px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand-gif {
+    width: 40px; height: 40px;
+    border-radius: 10px; overflow: hidden;
+    flex: 0 0 auto;
+    background: var(--media-bg);
+  }
+  .brand-gif img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .brand-title {
+    font-size: 16px; font-weight: 600; letter-spacing: -0.2px;
+    color: var(--text);
+  }
+  /* Floating circular action pill on the right */
+  .actions-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 999px; padding: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  }
+  .action-btn {
+    width: 40px; height: 40px;
+    border-radius: 999px;
+    background: transparent; border: none;
+    color: var(--text); font-size: 14px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s;
+  }
+  .action-btn:hover { background: var(--panel-2); }
+  .action-btn.primary {
+    background: var(--accent); color: #fff;
+  }
+  .action-btn.primary:hover { background: var(--accent-soft); }
+
+  /* Lightning icon used in Generate buttons */
+  .icon-bolt {
+    width: 14px; height: 14px;
+    display: inline-block; vertical-align: -2px;
+    flex: 0 0 auto;
+  }
 
   /* Floating left panel — detached, rounded card; starts below the topbar */
   .side-panel {
@@ -420,9 +451,9 @@
     background: var(--accent); color: #fff;
     border: none; cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
-    font-size: 14px; line-height: 1;
     transition: background .15s, transform .1s;
   }
+  .gen-inline .icon-bolt { width: 16px; height: 16px; vertical-align: 0; }
   .gen-inline:hover { background: var(--accent-soft); }
   .gen-inline:active { transform: scale(0.94); }
   .gen-inline:disabled { opacity: .4; cursor: not-allowed; }
@@ -552,8 +583,8 @@
   }
 
   .col textarea {
-    min-height: 56px; flex: none;
-    padding: 8px 10px; font-size: 13px;
+    min-height: 80px; flex: none;
+    padding: 10px 12px; font-size: 13px;
     line-height: 1.45;
   }
   #musicPrompt {
@@ -886,8 +917,20 @@
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="topbar-left">
-      <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
+    <div class="brand">
+      <div class="brand-gif"><img src="elmo-fire.gif" alt="" onerror="this.style.display='none'"></div>
+      <span class="brand-title">Elmo's Hotstuff</span>
+    </div>
+    <span class="topbar-spacer"></span>
+    <div class="actions-pill">
+      <button class="action-btn primary" id="playBtn" title="Play">▶</button>
+      <button class="action-btn" id="shareBtn" title="Share link">↗</button>
+      <button class="action-btn" id="downloadBtn" title="Download">↓</button>
+    </div>
+  </header>
+
+  <aside class="side-panel">
+    <div class="section">
       <div class="doc-picker">
         <button class="doc-trigger" id="docTrigger" type="button">
           <span class="doc-name" id="docName">Untitled</span>
@@ -896,20 +939,14 @@
         <button class="btn icon" id="newDoc" title="New storyboard">+</button>
         <div class="doc-menu" id="docMenu" style="display:none"></div>
       </div>
-      <button class="btn icon" id="settingsBtn" title="Settings">⚙</button>
+      <button class="btn" id="settingsBtn" title="Settings">⚙ Settings</button>
     </div>
-    <span class="topbar-spacer"></span>
-    <div class="topbar-actions">
-      <button class="btn primary" id="playBtn">▶ Play</button>
-      <button class="btn" id="shareBtn">↗ Share</button>
-      <button class="btn" id="downloadBtn">↓ Download</button>
-    </div>
-  </header>
 
-  <aside class="side-panel">
+    <div class="section-divider"></div>
+
     <div class="section">
-      <button class="btn" id="genAllImagesBtn" title="Regenerate images for every frame that has a description">⚡ Generate all images</button>
-      <button class="btn" id="genAllAudioBtn" title="Regenerate voiceovers for every frame that has a subtitle">⚡ Generate all voiceovers</button>
+      <button class="btn" id="genAllImagesBtn" title="Regenerate images for every frame that has a description"><svg class="icon-bolt" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg> Generate all images</button>
+      <button class="btn" id="genAllAudioBtn" title="Regenerate voiceovers for every frame that has a subtitle"><svg class="icon-bolt" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg> Generate all voiceovers</button>
     </div>
 
     <div class="section-divider"></div>
@@ -935,7 +972,7 @@
       <button class="btn" id="musicExpandBtn">▼ Expand</button>
       <div class="music-expanded" id="musicExpanded" style="display:none">
         <textarea id="musicPrompt" placeholder="Cinematic ambient, slow strings, melancholic… (describe genre, mood, instruments, tempo)"></textarea>
-        <button class="btn primary" id="genMusic">⚡ Generate</button>
+        <button class="btn primary" id="genMusic"><svg class="icon-bolt" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg> Generate</button>
       </div>
       <audio id="musicAudio" preload="metadata"></audio>
     </div>
@@ -1526,8 +1563,8 @@
               </div>
             </div>
             <div class="textarea-wrap">
-              <textarea rows="2" data-i="${i}" data-k="description" placeholder="A wide shot of an empty diner at dusk, neon humming…"></textarea>
-              <button class="gen-inline" data-action="gen-image" data-i="${i}" title="Generate image">⚡</button>
+              <textarea rows="3" data-i="${i}" data-k="description" placeholder="A wide shot of an empty diner at dusk, neon humming…"></textarea>
+              <button class="gen-inline" data-action="gen-image" data-i="${i}" title="Generate image"><svg class="icon-bolt" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg></button>
             </div>
           </div>
           <div class="col">
@@ -1551,8 +1588,8 @@
               </div>
             </div>
             <div class="textarea-wrap">
-              <textarea rows="2" data-i="${i}" data-k="subtitle" placeholder="Some places remember you, even when no one's there."></textarea>
-              <button class="gen-inline" data-action="gen-voice" data-i="${i}" title="Generate voiceover">⚡</button>
+              <textarea rows="3" data-i="${i}" data-k="subtitle" placeholder="Some places remember you, even when no one's there."></textarea>
+              <button class="gen-inline" data-action="gen-voice" data-i="${i}" title="Generate voiceover"><svg class="icon-bolt" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg></button>
             </div>
           </div>
         </div>
