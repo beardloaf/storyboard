@@ -444,18 +444,17 @@
   }
   /* iMessage-style inline Generate button anchored bottom-right of the textarea */
   .textarea-wrap { position: relative; display: flex; flex-direction: column; }
-  .textarea-wrap textarea { padding-right: 44px; }
+  .textarea-wrap textarea { padding-right: 36px; }
   .gen-inline {
-    position: absolute; right: 8px; bottom: 8px;
-    width: 30px; height: 30px;
+    position: absolute; right: 7px; bottom: 7px;
+    width: 22px; height: 22px;
     border-radius: 50%;
     background: var(--accent); color: var(--on-accent);
     border: none; cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
     transition: background .15s, transform .1s;
-    box-shadow: 0 0 12px rgba(var(--accent-rgb), .5);
   }
-  .gen-inline .icon-bolt { width: 16px; height: 16px; vertical-align: 0; }
+  .gen-inline .icon-bolt { width: 12px; height: 12px; vertical-align: 0; }
   .gen-inline:hover { background: var(--accent-soft); }
   .gen-inline:active { transform: scale(0.94); }
   .gen-inline:disabled { opacity: .4; cursor: not-allowed; }
@@ -838,7 +837,7 @@
   }
   .share-controls .transport button:hover { border-color: var(--accent-soft); }
   .share-controls .transport button.play {
-    background: var(--accent); border-color: var(--accent); color: #f6f9f6;
+    background: var(--accent); border-color: var(--accent); color: var(--on-accent);
     width: 44px; height: 44px; font-size: 16px;
   }
   .share-controls .transport button.play:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
@@ -1459,7 +1458,7 @@
     const mid = rect.height / 2;
     const barWidth = rect.width / peaks.length;
     const barPad = Math.max(0.5, barWidth * 0.25);
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#4d7c5a";
+    ctx.fillStyle = "#ffffff";
     peaks.forEach((p, i) => {
       const h = Math.max(1, p * (rect.height - 4));
       ctx.fillRect(i * barWidth + barPad/2, mid - h/2, Math.max(1, barWidth - barPad), h);
