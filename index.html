@@ -26,7 +26,7 @@
     --accent-2: #d9d9d9;
     --danger: #ff5d5d;
     --good: #6ed18a;
-    --mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --mono: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
   }
   :root[data-theme="light"] {
     --bg: #f6f6f4;
@@ -108,13 +108,14 @@
   .doc-picker { display: flex; align-items: center; gap: 6px; }
   .doc-actions { display: flex; align-items: center; gap: 6px; }
   .doc-picker select {
-    flex: 1; min-width: 0; padding: 8px 30px 8px 14px; font-size: 13px; border-radius: 999px;
+    flex: 1; min-width: 0; padding: 14px 36px 14px 20px; font-size: 14px; border-radius: 999px;
     background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
                       linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-    background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+    background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
     background-size: 5px 5px; background-repeat: no-repeat;
     -webkit-appearance: none; appearance: none;
   }
+  .doc-actions { flex-wrap: wrap; gap: 6px; }
 
   .config {
     display: flex; align-items: center; gap: 6px;
@@ -192,6 +193,9 @@
     border-right: 2px solid var(--accent);
     width: 0%; pointer-events: none; z-index: 2;
     transition: width .08s linear;
+  }
+  .music-count {
+    font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .5px;
   }
   .music-time {
     font-family: var(--mono); font-size: 11px; color: var(--muted);
@@ -798,10 +802,10 @@
         <select id="docSelect" title="Storyboard"></select>
       </div>
       <div class="doc-actions">
-        <button class="btn icon" id="newDoc" title="New">+</button>
-        <button class="btn icon" id="renameDoc" title="Rename">✎</button>
-        <button class="btn icon" id="duplicateDoc" title="Duplicate">⧉</button>
-        <button class="btn icon" id="deleteDoc" title="Delete">🗑</button>
+        <button class="btn tiny" id="newDoc" title="New storyboard">+ New</button>
+        <button class="btn tiny" id="renameDoc" title="Rename">✎ Rename</button>
+        <button class="btn tiny" id="duplicateDoc" title="Duplicate">⧉ Duplicate</button>
+        <button class="btn tiny" id="deleteDoc" title="Delete">🗑 Delete</button>
       </div>
     </div>
 
@@ -826,7 +830,11 @@
         <span class="music-time" id="musicTime">0:00 / 0:00</span>
       </div>
       <div class="row" id="musicSecondary" style="display:none">
-        <button class="btn tiny" id="clearMusic">Clear track</button>
+        <button class="btn tiny" id="musicPrev" title="Previous track">‹</button>
+        <span class="music-count" id="musicCount"></span>
+        <button class="btn tiny" id="musicNext" title="Next track">›</button>
+        <span class="spacer" style="flex:1"></span>
+        <button class="btn tiny" id="clearMusic">Delete</button>
       </div>
       <button class="btn primary" id="genMusic">⚡ Generate</button>
       <textarea id="musicPrompt" placeholder="Cinematic ambient, slow strings, melancholic… (describe genre, mood, instruments, tempo)"></textarea>
@@ -922,7 +930,7 @@
     const count = Math.round(totalSec / frameSec);
     return {
       totalSec, frameSec,
-      musicKey: "", musicPrompt: "",
+      musicKey: "", musicHistory: [], musicPrompt: "",
       frames: Array.from({length: count}, () => makeFrame(frameSec))
     };
   }
@@ -1013,6 +1021,8 @@
           for (const k of Object.keys(store.docs)) {
             const d = store.docs[k];
             if (d.musicKey == null) d.musicKey = "";
+            if (!Array.isArray(d.musicHistory)) d.musicHistory = d.musicKey ? [d.musicKey] : [];
+            else if (d.musicKey && !d.musicHistory.includes(d.musicKey)) d.musicHistory.push(d.musicKey);
             if (d.musicPrompt == null) d.musicPrompt = "";
             for (const f of d.frames) {
               if (f.imageKey == null) f.imageKey = "";
@@ -1301,6 +1311,23 @@
       mw.classList.add("has-audio");
       mc.style.display = "flex";
       ms.style.display = "flex";
+      const history = Array.isArray(doc.musicHistory) ? doc.musicHistory : [];
+      const idx = history.indexOf(doc.musicKey);
+      const total = history.length;
+      const countEl = document.getElementById("musicCount");
+      const prevBtn = document.getElementById("musicPrev");
+      const nextBtn = document.getElementById("musicNext");
+      if (total > 1) {
+        countEl.textContent = `${idx+1}/${total}`;
+        prevBtn.style.display = "";
+        nextBtn.style.display = "";
+        prevBtn.disabled = idx <= 0;
+        nextBtn.disabled = idx >= total - 1;
+      } else {
+        countEl.textContent = "";
+        prevBtn.style.display = "none";
+        nextBtn.style.display = "none";
+      }
       idbGet(doc.musicKey).then(async b => {
         if (!b) return;
         const url = await blobUrl(doc.musicKey);
@@ -1713,19 +1740,24 @@
         frameSec: source.frameSec || 5,
         musicPrompt: source.musicPrompt || "",
         musicKey: "",
+        musicHistory: [],
         frames: []
       };
 
-      // Duplicate music blob
-      if (source.musicKey) {
-        const blob = await idbGet(source.musicKey);
-        if (blob) {
-          const k = newKey("music");
-          await idbPut(k, blob);
-          newDoc.musicKey = k;
-        }
+      // Duplicate every music track in the soundtrack stack
+      const musicHist = Array.isArray(source.musicHistory) && source.musicHistory.length
+        ? source.musicHistory
+        : (source.musicKey ? [source.musicKey] : []);
+      for (const oldKey of musicHist) {
+        const blob = await idbGet(oldKey);
+        if (!blob) continue;
+        const k = newKey("music");
+        await idbPut(k, blob);
+        newDoc.musicHistory.push(k);
+        if (oldKey === source.musicKey) newDoc.musicKey = k;
         tick("Copying soundtrack…");
       }
+      if (!newDoc.musicKey && newDoc.musicHistory.length > 0) newDoc.musicKey = newDoc.musicHistory[0];
 
       // Duplicate every frame + its blobs
       for (let i = 0; i < source.frames.length; i++) {
@@ -1809,9 +1841,10 @@
     try {
       const lengthMs = Math.round(Math.max(10000, Math.min(300000, doc.frames.reduce((s,f)=>s+f.duration,0) * 1000)));
       const blob = await callElevenLabsMusic(prompt, lengthMs);
-      if (doc.musicKey) idbDel(doc.musicKey).catch(()=>{});
       const key = newKey("music");
       await idbPut(key, blob);
+      if (!Array.isArray(doc.musicHistory)) doc.musicHistory = [];
+      doc.musicHistory.push(key);
       doc.musicKey = key;
       doc.musicPrompt = prompt;
       save(); renderMusic();
@@ -1824,8 +1857,25 @@
     const doc = activeDoc();
     const audio = document.getElementById("musicAudio");
     audio.pause(); audio.removeAttribute("src");
+    const history = Array.isArray(doc.musicHistory) ? doc.musicHistory : [];
+    const idx = history.indexOf(doc.musicKey);
     if (doc.musicKey) idbDel(doc.musicKey).catch(()=>{});
-    doc.musicKey = ""; save(); renderMusic();
+    if (idx >= 0) history.splice(idx, 1);
+    doc.musicHistory = history;
+    doc.musicKey = history.length > 0 ? history[Math.min(idx, history.length - 1)] : "";
+    save(); renderMusic();
+  });
+  document.getElementById("musicPrev").addEventListener("click", () => {
+    const doc = activeDoc();
+    const history = Array.isArray(doc.musicHistory) ? doc.musicHistory : [];
+    const idx = history.indexOf(doc.musicKey);
+    if (idx > 0) { doc.musicKey = history[idx - 1]; save(); renderMusic(); }
+  });
+  document.getElementById("musicNext").addEventListener("click", () => {
+    const doc = activeDoc();
+    const history = Array.isArray(doc.musicHistory) ? doc.musicHistory : [];
+    const idx = history.indexOf(doc.musicKey);
+    if (idx >= 0 && idx < history.length - 1) { doc.musicKey = history[idx + 1]; save(); renderMusic(); }
   });
 
   // Music transport
@@ -2655,13 +2705,14 @@
     }
     // Build a doc in memory; convert base64 assets back to blobs and stash them
     // in IDB under share-prefixed keys so the existing player code Just Works.
-    const doc = { totalSec: 0, frameSec: 5, musicPrompt: "", musicKey: "", frames: [] };
+    const doc = { totalSec: 0, frameSec: 5, musicPrompt: "", musicKey: "", musicHistory: [], frames: [] };
     if (bundle.music) {
       const blob = dataUrlToBlobSync(bundle.music);
       if (blob) {
         const key = `share-${slug}-music`;
         await idbPut(key, blob);
         doc.musicKey = key;
+        doc.musicHistory = [key];
       }
     }
     for (let i = 0; i < bundle.frames.length; i++) {
@@ -2843,6 +2894,15 @@
       }
       const total = totalLength();
       const overall = elapsedBeforeIdx(st.idx) + Math.min(inFrame, frameDur);
+      // Music volume crescendo: stay at base for the first 2/3, rise gently to ~0.4 by the end
+      if (playerMusic.src && total > 0) {
+        const base = 0.22, peak = 0.4, crossover = total * 2/3;
+        if (overall <= crossover) playerMusic.volume = base;
+        else {
+          const t = Math.min(1, (overall - crossover) / (total - crossover));
+          playerMusic.volume = base + (peak - base) * t;
+        }
+      }
       ctrlProgressBar.style.width = `${(overall/total)*100}%`;
       ctrlTime.textContent = `${fmt(overall)} / ${fmt(total)}`;
       if (inFrame >= frameDur) {
@@ -3147,7 +3207,11 @@
           const src = audioCtx.createBufferSource();
           src.buffer = musicBuf; src.loop = true;
           const gain = audioCtx.createGain();
-          gain.gain.value = 0.22;
+          // Crescendo: base 0.22 → 0.40 in the final third
+          const base = 0.22, peak = 0.40, crossover = t0 + (totalDuration * 2/3);
+          gain.gain.setValueAtTime(base, t0);
+          gain.gain.setValueAtTime(base, crossover);
+          gain.gain.linearRampToValueAtTime(peak, t0 + totalDuration);
           src.connect(gain).connect(dest);
           src.start(t0);
           src.stop(t0 + totalDuration);
