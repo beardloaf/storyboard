@@ -748,14 +748,6 @@
         <button class="btn icon" id="renameDoc" title="Rename">✎</button>
         <button class="btn icon" id="deleteDoc" title="Delete">🗑</button>
       </div>
-      <div class="config">
-        <span>Total</span>
-        <input id="totalSec" type="number" min="5" step="5" value="60" />
-        <span>s · per frame</span>
-        <input id="frameSec" type="number" min="1" step="1" value="5" />
-        <span>s</span>
-        <button class="btn ghost" id="applyTiming">Reset</button>
-      </div>
     </div>
 
     <div class="section-divider"></div>
@@ -1367,8 +1359,6 @@
     const total = doc.frames.reduce((s,f)=>s+f.duration, 0);
     summaryLeft.textContent = `${doc.frames.length} frame${doc.frames.length===1?"":"s"} · ${store.active}`;
     summaryRight.textContent = `${total}s total`;
-    document.getElementById("totalSec").value = doc.totalSec;
-    document.getElementById("frameSec").value = doc.frameSec;
     hydrateImages(framesEl);
     if (window.scrollY !== sy) window.scrollTo({ top: sy, left: 0, behavior: "instant" });
   }
@@ -1566,19 +1556,6 @@
     doc.frames.push(makeFrame(doc.frameSec));
     save(); renderEditor();
   });
-  document.getElementById("applyTiming").addEventListener("click", () => {
-    const doc = activeDoc();
-    const newTotal = Math.max(1, parseInt(document.getElementById("totalSec").value||"60",10));
-    const newFrame = Math.max(1, parseInt(document.getElementById("frameSec").value||"5",10));
-    const count = Math.max(1, Math.round(newTotal / newFrame));
-    if (!confirm(`Reset "${store.active}" to ${count} blank frames of ${newFrame}s each? This clears generated assets.`)) return;
-    doc.totalSec = newTotal; doc.frameSec = newFrame;
-    doc.frames = Array.from({length: count}, () => makeFrame(newFrame));
-    save(); renderEditor();
-  });
-  document.getElementById("totalSec").addEventListener("change", e => { activeDoc().totalSec = Math.max(1, parseInt(e.target.value||"60",10)); save(); });
-  document.getElementById("frameSec").addEventListener("change", e => { activeDoc().frameSec = Math.max(1, parseInt(e.target.value||"5",10)); save(); });
-
   docSelect.addEventListener("change", e => { store.active = e.target.value; save(); renderAll(); });
 
   document.getElementById("newDoc").addEventListener("click", async () => {
@@ -2048,7 +2025,7 @@
             <div class="stage-subtitle" id="stageSubtitle"></div>
           </div>
         </div>
-        ${!closeable ? `<div class="footer">Made with <a href="${location.origin}${location.pathname}" target="_blank">storyboard</a></div>` : ""}
+        ${!closeable ? `<div class="footer">Made with <a href="${location.origin}${location.pathname}" target="_blank">Elmo's Hotstuff</a></div>` : ""}
         <audio id="playerAudio"></audio>
         <audio id="playerMusic" loop></audio>
       </div>
@@ -2388,7 +2365,7 @@
               <button class="btn primary" id="shareUnlockBtn" style="padding:14px 20px">Unlock</button>
               ${errorMsg ? `<div style="color:var(--danger);font-family:var(--mono);font-size:11px;letter-spacing:.5px">${escapeHtml(errorMsg)}</div>` : ""}
             </div>
-            <div class="footer">Made with <a href="${location.origin}${location.pathname}" target="_blank">storyboard</a></div>
+            <div class="footer">Made with <a href="${location.origin}${location.pathname}" target="_blank">Elmo's Hotstuff</a></div>
           </div>`;
         const input = document.getElementById("shareUnlockPw");
         const btn = document.getElementById("shareUnlockBtn");
