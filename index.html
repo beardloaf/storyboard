@@ -394,17 +394,37 @@
     display: flex; flex-direction: column; gap: 8px;
   }
 
-  .col { display: flex; flex-direction: column; }
+  .col { display: flex; flex-direction: column; gap: 10px; }
   .col-head {
     display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 4px;
+    gap: 8px;
   }
   .col-head label {
     font-family: var(--mono); font-size: 9px; text-transform: uppercase;
     letter-spacing: 1.4px; color: var(--muted); font-weight: 500;
   }
-  .col-head .btn.tiny { padding: 3px 8px; font-size: 10px; }
-  .col-head-actions { display: flex; gap: 4px; }
+  .col-head-actions { display: flex; gap: 4px; align-items: center; }
+  .col-head-actions .btn.tiny.icon { width: 26px; height: 26px; padding: 0; font-size: 12px; }
+  .col-head-actions .audio-count {
+    font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .5px;
+    padding: 0 2px;
+  }
+  /* iMessage-style inline Generate button anchored bottom-right of the textarea */
+  .textarea-wrap { position: relative; display: flex; flex-direction: column; }
+  .textarea-wrap textarea { padding-right: 44px; }
+  .gen-inline {
+    position: absolute; right: 8px; bottom: 8px;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--accent); color: #fff;
+    border: none; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1;
+    transition: background .15s, transform .1s;
+  }
+  .gen-inline:hover { background: var(--accent-soft); }
+  .gen-inline:active { transform: scale(0.94); }
+  .gen-inline:disabled { opacity: .4; cursor: not-allowed; }
 
   /* Image preview */
   .img-preview {
@@ -531,7 +551,7 @@
   }
 
   .col textarea {
-    min-height: 92px; flex: none;
+    min-height: 56px; flex: none;
     padding: 8px 10px; font-size: 13px;
     line-height: 1.45;
   }
@@ -1499,31 +1519,38 @@
             <div class="col-head">
               <label>What you see</label>
               <div class="col-head-actions">
-                <button class="btn tiny" data-action="upload-image" data-i="${i}" title="Upload image">⬆️ Upload</button>
-                <button class="btn tiny" data-action="gen-image" data-i="${i}">⚡ Generate</button>
+                <button class="btn tiny icon" data-action="upload-image" data-i="${i}" title="Upload image">⬆️</button>
               </div>
             </div>
-            <textarea rows="4" data-i="${i}" data-k="description" placeholder="A wide shot of an empty diner at dusk, neon humming…"></textarea>
+            <div class="textarea-wrap">
+              <textarea rows="2" data-i="${i}" data-k="description" placeholder="A wide shot of an empty diner at dusk, neon humming…"></textarea>
+              <button class="gen-inline" data-action="gen-image" data-i="${i}" title="Generate image">⚡</button>
+            </div>
           </div>
           <div class="col">
             <div class="wave-preview" data-wave="${i}"><canvas></canvas></div>
-            <div class="wave-controls" data-wavectl="${i}" style="display:${f.audioKey ? "flex" : "none"}">
-              ${(() => {
-                const ah = Array.isArray(f.audioHistory) ? f.audioHistory : [];
-                const aidx = ah.indexOf(f.audioKey);
-                if (ah.length <= 1) return "";
-                return `<button class="btn tiny" data-action="prev-audio" data-i="${i}" ${aidx<=0?"disabled":""}>‹</button>
-                  <span class="audio-count">${aidx+1}/${ah.length}</span>
-                  <button class="btn tiny" data-action="next-audio" data-i="${i}" ${aidx>=ah.length-1?"disabled":""}>›</button>`;
-              })()}
-              <button class="btn tiny" data-action="play-audio" data-i="${i}">▶ Preview</button>
-              <button class="btn tiny" data-action="clear-audio" data-i="${i}">Delete</button>
-            </div>
             <div class="col-head">
               <label>What you hear</label>
-              <button class="btn tiny" data-action="gen-voice" data-i="${i}">⚡ Generate</button>
+              <div class="col-head-actions">
+                ${(() => {
+                  if (!f.audioKey) return "";
+                  const ah = Array.isArray(f.audioHistory) ? f.audioHistory : [];
+                  const aidx = ah.indexOf(f.audioKey);
+                  const navHtml = ah.length > 1
+                    ? `<button class="btn tiny icon" data-action="prev-audio" data-i="${i}" title="Previous" ${aidx<=0?"disabled":""}>⬅️</button>
+                       <span class="audio-count">${aidx+1}/${ah.length}</span>
+                       <button class="btn tiny icon" data-action="next-audio" data-i="${i}" title="Next" ${aidx>=ah.length-1?"disabled":""}>➡️</button>`
+                    : "";
+                  return `${navHtml}
+                    <button class="btn tiny icon" data-action="play-audio" data-i="${i}" title="Preview">▶️</button>
+                    <button class="btn tiny icon" data-action="clear-audio" data-i="${i}" title="Delete">🗑️</button>`;
+                })()}
+              </div>
             </div>
-            <textarea rows="4" data-i="${i}" data-k="subtitle" placeholder="Some places remember you, even when no one's there."></textarea>
+            <div class="textarea-wrap">
+              <textarea rows="2" data-i="${i}" data-k="subtitle" placeholder="Some places remember you, even when no one's there."></textarea>
+              <button class="gen-inline" data-action="gen-voice" data-i="${i}" title="Generate voiceover">⚡</button>
+            </div>
           </div>
         </div>
       `;
