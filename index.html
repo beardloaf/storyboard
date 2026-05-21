@@ -68,24 +68,28 @@
 
   .app {
     min-height: 100%;
-    display: grid;
-    grid-template-columns: 340px 1fr;
-    gap: 0;
+    display: block;
   }
   main {
     min-width: 0;
-    padding: 28px 32px 40px;
+    margin-left: 348px; /* 320 panel + 14 gap each side */
+    padding: 14px 28px 40px;
   }
 
-  /* Floating right panel */
+  /* Floating left panel — detached, rounded card */
   .side-panel {
-    position: sticky; top: 0;
-    height: 100vh; overflow-y: auto;
+    position: fixed;
+    top: 14px; left: 14px; bottom: 14px;
+    width: 320px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
     background: var(--panel);
-    border-right: 1px solid var(--line);
-    padding: 28px 24px 32px;
+    overflow-y: auto;
+    padding: 22px 22px 24px;
     display: flex; flex-direction: column;
-    gap: 24px;
+    gap: 22px;
+    box-shadow: 0 10px 32px rgba(0,0,0,.25);
+    z-index: 30;
   }
   .side-panel .section {
     display: flex; flex-direction: column; gap: 12px;
@@ -102,6 +106,7 @@
   .brand-row .spacer { flex: 1; }
 
   .doc-picker { display: flex; align-items: center; gap: 6px; }
+  .doc-actions { display: flex; align-items: center; gap: 6px; }
   .doc-picker select {
     flex: 1; min-width: 0; padding: 8px 30px 8px 14px; font-size: 13px; border-radius: 999px;
     background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
@@ -127,10 +132,12 @@
   }
 
   @media (max-width: 900px) {
-    .app { grid-template-columns: 1fr; }
+    main { margin-left: 0; }
     .side-panel {
-      position: static; height: auto;
-      border-right: none; border-bottom: 1px solid var(--line);
+      position: static; height: auto; width: auto;
+      top: auto; left: auto; bottom: auto;
+      margin: 14px;
+      box-shadow: none;
     }
   }
 
@@ -783,14 +790,14 @@
     <div class="section brand-row">
       <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
       <span class="spacer"></span>
-      <button class="btn icon" id="themeBtn" title="Toggle light / dark">☀</button>
       <button class="btn icon" id="settingsBtn" title="Settings, API keys, voice">⚙</button>
     </div>
 
     <div class="section">
-      <span class="label-mono">Storyboard</span>
       <div class="doc-picker">
         <select id="docSelect" title="Storyboard"></select>
+      </div>
+      <div class="doc-actions">
         <button class="btn icon" id="newDoc" title="New">+</button>
         <button class="btn icon" id="renameDoc" title="Rename">✎</button>
         <button class="btn icon" id="duplicateDoc" title="Duplicate">⧉</button>
@@ -2691,6 +2698,7 @@
     const ctrlProgressBar = document.getElementById("ctrlProgressBar");
 
     let st = { playing: false, idx: 0, startedAt: 0, elapsedInFrame: 0, rafId: null };
+    let speed = 1; // playback rate, applied to every media element on src change
     const frames = () => activeDoc().frames;
     const totalLength = () => frames().reduce((s,f)=>s+(f.duration||0),0);
     const elapsedBeforeIdx = (idx) => { let s=0; for (let i=0;i<idx;i++) s+=frames()[i].duration||0; return s; };
@@ -2717,7 +2725,7 @@
         if (isVid) {
           stageBg.style.backgroundImage = "";
           stage.classList.add("has-video");
-          if (url) { stageVideo.src = url; stageVideo.currentTime = 0; if (st.playing) stageVideo.play().catch(()=>{}); }
+          if (url) { stageVideo.src = url; stageVideo.currentTime = 0; stageVideo.playbackRate = speed; if (st.playing) stageVideo.play().catch(()=>{}); }
         } else {
           stage.classList.remove("has-video");
           stageVideo.pause(); stageVideo.removeAttribute("src");
@@ -2742,7 +2750,7 @@
       updateStage(i);
       if (f.audioKey) {
         const url = await blobUrl(f.audioKey);
-        playerAudio.src = url; playerAudio.currentTime = 0;
+        playerAudio.src = url; playerAudio.currentTime = 0; playerAudio.playbackRate = speed;
         if (st.playing) playerAudio.play().catch(()=>{});
       } else {
         playerAudio.removeAttribute("src");
@@ -2754,7 +2762,7 @@
       if (!doc.musicKey) { playerMusic.removeAttribute("src"); return; }
       if (!playerMusic.src) {
         const url = await blobUrl(doc.musicKey);
-        playerMusic.src = url; playerMusic.volume = 0.22;
+        playerMusic.src = url; playerMusic.volume = 0.22; playerMusic.playbackRate = speed;
       }
     }
 
@@ -2803,7 +2811,11 @@
       const hasAudio = !!(f.audioKey && playerAudio.src && isFinite(playerAudio.duration) && playerAudio.duration > 0);
       let inFrame, frameDur;
       if (hasAudio) { inFrame = playerAudio.currentTime; frameDur = playerAudio.duration; }
-      else { inFrame = st.elapsedInFrame + (performance.now() - st.startedAt) / 1000; frameDur = f.duration; }
+      else {
+        // Silent frame: wall-clock timer, scaled by playback speed
+        inFrame = (st.elapsedInFrame + (performance.now() - st.startedAt) / 1000) * speed;
+        frameDur = f.duration;
+      }
       const total = totalLength();
       const overall = elapsedBeforeIdx(st.idx) + Math.min(inFrame, frameDur);
       ctrlProgressBar.style.width = `${(overall/total)*100}%`;
@@ -2861,7 +2873,6 @@
     restartBtn.addEventListener("click", restart);
 
     // Playback speed (cycles 1× → 1.5× → 2× → 1×)
-    let speed = 1;
     const speedBtn = document.getElementById("ctrlSpeed");
     const stageVideoEl = document.getElementById("stageVideo");
     function applySpeed(s) {
@@ -3251,22 +3262,6 @@
   document.getElementById("genAllAudioBtn").addEventListener("click", generateAllAudio);
 
   function renderAll() { renderDocPicker(); renderMusic(); renderEditor(); }
-
-  // --- theme ---
-  function applyTheme(theme) {
-    document.documentElement.dataset.theme = theme;
-    const btn = document.getElementById("themeBtn");
-    if (btn) btn.textContent = theme === "dark" ? "☀" : "🌙";
-  }
-  (function initTheme() {
-    const saved = localStorage.getItem("storyboard.theme") || "dark";
-    applyTheme(saved);
-  })();
-  document.getElementById("themeBtn").addEventListener("click", () => {
-    const next = (document.documentElement.dataset.theme === "dark") ? "light" : "dark";
-    applyTheme(next);
-    localStorage.setItem("storyboard.theme", next);
-  });
 
   // --- floating actions on scroll ---
   (function initFloating() {
