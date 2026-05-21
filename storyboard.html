@@ -2585,7 +2585,7 @@
       if (!doc.musicKey) { playerMusic.removeAttribute("src"); return; }
       if (!playerMusic.src) {
         const url = await blobUrl(doc.musicKey);
-        playerMusic.src = url; playerMusic.volume = 0.45;
+        playerMusic.src = url; playerMusic.volume = 0.22;
       }
     }
 
@@ -2927,7 +2927,7 @@
           const src = audioCtx.createBufferSource();
           src.buffer = musicBuf; src.loop = true;
           const gain = audioCtx.createGain();
-          gain.gain.value = 0.45;
+          gain.gain.value = 0.22;
           src.connect(gain).connect(dest);
           src.start(t0);
           src.stop(t0 + totalDuration);
