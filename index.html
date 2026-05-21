@@ -432,11 +432,14 @@
   }
   .player .img-stage {
     position: absolute; inset: 0;
-    background-size: cover; background-position: center; background-color: #000;
+    background-size: contain;          /* show full image, no crop */
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: #000;
   }
   .player .img-stage video {
     position: absolute; inset: 0;
-    width: 100%; height: 100%; object-fit: cover;
+    width: 100%; height: 100%; object-fit: contain;
     display: none;
   }
   .player .img-stage.has-video video { display: block; }
@@ -597,11 +600,14 @@
   }
   .share-stage .bg {
     position: absolute; inset: 0;
-    background-size: cover; background-position: center; background-color: #000;
+    background-size: contain;          /* show full image, no crop */
+    background-repeat: no-repeat;
+    background-position: center;
+    background-color: #000;
   }
   .share-stage video {
     position: absolute; inset: 0;
-    width: 100%; height: 100%; object-fit: cover;
+    width: 100%; height: 100%; object-fit: contain;
     display: none;
   }
   .share-stage.has-video video { display: block; }
