@@ -483,30 +483,33 @@
   .modal a { color: var(--accent-2); text-decoration: none; }
   .modal a:hover { text-decoration: underline; }
 
-  /* Shared-view (view-only) landing — contact-sheet grid */
+  /* Shared-view (view-only) — contact sheet + inline theatre + unified bottom controls */
   .share-view {
     min-height: 100vh;
     display: flex; flex-direction: column;
-    padding: 28px 32px 40px;
-    gap: 24px;
+    padding: 24px 32px 96px;     /* bottom space for fixed control bar */
+    gap: 20px;
   }
   .share-view .brand img { max-height: 28px; }
-  .share-view .share-header {
+  .share-header {
     display: flex; align-items: center; gap: 20px;
-    padding-bottom: 18px;
+    padding-bottom: 16px;
     border-bottom: 1px solid var(--line);
   }
-  .share-view .share-header h1 {
-    flex: 1; margin: 0; font-size: clamp(20px, 2.6vw, 30px);
+  .share-header h1 {
+    flex: 1; margin: 0; font-size: clamp(20px, 2.4vw, 28px);
     font-weight: 600; letter-spacing: -0.3px;
   }
-  .share-view .meta {
+  .share-header .meta {
     color: var(--muted); font-family: var(--mono); font-size: 11px;
     letter-spacing: 1px; text-transform: uppercase;
   }
-  .share-view .play-cta {
-    padding: 12px 26px; font-size: 14px;
-  }
+
+  .share-content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .share-view[data-mode="grid"]    .share-stage { display: none; }
+  .share-view[data-mode="theatre"] .share-grid  { display: none; }
+
+  /* Grid */
   .share-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -521,9 +524,13 @@
     border-radius: 12px;
     overflow: hidden;
     display: flex; flex-direction: column;
-    transition: border-color .15s, transform .15s;
+    transition: border-color .15s, box-shadow .15s;
   }
   .share-tile:hover { border-color: var(--line-2); }
+  .share-tile.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.35);
+  }
   .share-tile .thumb {
     aspect-ratio: 16 / 9;
     background: #050505;
@@ -553,10 +560,119 @@
     color: var(--text);
   }
   .share-tile .tile-subtitle:empty { display: none; }
-  .share-view .footer {
-    margin-top: auto; padding-top: 16px;
-    font-size: 12px; color: var(--muted);
+
+  /* Theatre stage (inline, not fullscreen) */
+  .share-stage {
+    flex: 1; min-height: 65vh;
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .share-stage .bg {
+    position: absolute; inset: 0;
+    background-size: cover; background-position: center; background-color: #000;
+  }
+  .share-stage video {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%; object-fit: cover;
+    display: none;
+  }
+  .share-stage.has-video video { display: block; }
+  .share-stage::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.7) 0%, transparent 35%, transparent 65%, rgba(0,0,0,.4) 100%);
+    pointer-events: none;
+  }
+  .share-stage .stage-frameno {
+    position: absolute; top: 20px; left: 22px; z-index: 2;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 2px;
+    color: rgba(255,255,255,.75);
+  }
+  .share-stage .stage-fallback {
+    position: relative; z-index: 1;
+    font-size: clamp(20px, 2.6vw, 30px);
+    max-width: 1000px; padding: 0 32px;
+    text-align: center; color: #ececec;
+    line-height: 1.3;
+  }
+  .share-stage .stage-subtitle {
+    position: absolute; bottom: 32px; left: 20px; right: 20px; z-index: 2;
+    text-align: center;
+    font-size: clamp(16px, 2vw, 22px); font-weight: 500;
+    color: #fff; text-shadow: 0 2px 14px rgba(0,0,0,.95);
+    line-height: 1.4;
+    max-width: 1100px; margin: 0 auto;
+  }
+
+  /* Bottom control bar — sticky modern player */
+  .share-controls {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: rgba(13, 13, 13, 0.92);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     border-top: 1px solid var(--line);
+    padding: 12px 24px;
+    display: flex; align-items: center; gap: 16px;
+    z-index: 100;
+  }
+  .share-controls .transport {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .share-controls .transport button {
+    width: 36px; height: 36px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-size: 13px; line-height: 1;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .share-controls .transport button:hover { border-color: var(--accent-soft); }
+  .share-controls .transport button.play {
+    background: var(--accent); border-color: var(--accent); color: #f6f9f6;
+    width: 44px; height: 44px; font-size: 16px;
+  }
+  .share-controls .transport button.play:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
+  .share-controls .time {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted); font-variant-numeric: tabular-nums;
+    min-width: 96px; text-align: center;
+  }
+  .share-controls .progress {
+    flex: 1; height: 5px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 999px;
+    position: relative;
+    cursor: pointer;
+  }
+  .share-controls .progress .bar {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 0%;
+    background: var(--accent);
+    border-radius: 999px;
+    transition: width .1s linear;
+  }
+  .share-controls .view-toggle {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 8px 14px;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: var(--mono); letter-spacing: .5px;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: border-color .15s, color .15s;
+  }
+  .share-controls .view-toggle:hover { border-color: var(--accent-soft); color: var(--accent-soft); }
+
+  .share-view .footer {
+    padding-top: 12px;
+    font-size: 11px; color: var(--muted);
+    text-align: right;
   }
   .share-view .footer a { color: var(--accent-soft); text-decoration: none; }
   .share-view .footer a:hover { text-decoration: underline; }
@@ -2407,7 +2523,7 @@
         mediaHtml = `<div class="no-image">${escapeHtml(f.description || "No image")}</div>`;
       }
       return `
-        <div class="share-tile">
+        <div class="share-tile" data-tile-i="${i}">
           <div class="thumb">
             <span class="index">#${String(i+1).padStart(2,"0")}</span>
             ${mediaHtml}
@@ -2416,126 +2532,168 @@
         </div>`;
     }).join("");
     document.body.innerHTML = `
-      <div class="share-view">
+      <div class="share-view" data-mode="grid">
         <div class="share-header">
           <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
           <h1>${escapeHtml(bundle.name || "Untitled")}</h1>
           <div class="meta">${doc.frames.length} FRAME${doc.frames.length === 1 ? "" : "S"} · ${totalDur.toFixed(1)}S</div>
-          <button class="btn primary play-cta" id="sharePlayBtn">▶ Play</button>
         </div>
-        <div class="share-grid">${tiles}</div>
+        <div class="share-content">
+          <div class="share-grid">${tiles}</div>
+          <div class="share-stage">
+            <div class="bg" id="stageBg"></div>
+            <video id="stageVideo" muted loop playsinline></video>
+            <div class="stage-frameno" id="stageFrameno"></div>
+            <div class="stage-fallback" id="stageFallback" style="display:none"></div>
+            <div class="stage-subtitle" id="stageSubtitle"></div>
+          </div>
+        </div>
         <div class="footer">Made with <a href="${location.origin}${location.pathname}" target="_blank">storyboard</a></div>
+        <audio id="playerAudio"></audio>
+        <audio id="playerMusic" loop></audio>
       </div>
-      <div class="player" id="player" style="display:none">
-        <div class="stage">
-          <div class="img-stage" id="playerImgStage"><video id="playerVideo" muted loop playsinline></video></div>
-          <div class="frameno" id="playerFrameNo"></div>
-          <button class="btn close" id="closeBtn">Close ✕</button>
-          <div class="description" id="playerDesc"></div>
-          <div class="subtitle" id="playerSub"></div>
-          <audio id="playerAudio"></audio>
-          <audio id="playerMusic" loop></audio>
+      <div class="share-controls">
+        <div class="transport">
+          <button id="ctrlRestart" title="Restart (R)">↻</button>
+          <button id="ctrlPrev" title="Previous frame (←)">⏮</button>
+          <button id="ctrlPlayPause" class="play" title="Play / Pause (Space)">▶</button>
+          <button id="ctrlNext" title="Next frame (→)">⏭</button>
         </div>
-        <div class="progress"><div class="bar" id="progressBar"></div></div>
-        <div class="controls">
-          <button class="btn" id="prevBtn">⏮ Prev</button>
-          <button class="btn primary" id="playPauseBtn">⏸ Pause</button>
-          <button class="btn" id="nextBtn">Next ⏭</button>
-          <div class="time" id="timeReadout">0.0s / 0.0s</div>
-        </div>
+        <div class="time" id="ctrlTime">0:00 / 0:00</div>
+        <div class="progress" id="ctrlProgress"><div class="bar" id="ctrlProgressBar"></div></div>
+        <button class="view-toggle" id="viewToggle" title="Switch view (V)">⛶ Theatre</button>
       </div>`;
     hydrateImages(document);
-    // The DOM has been replaced; the IIFE's player references are stale.
-    // Reload them by reloading the page logic via a small bootstrap.
     bootShareModePlayer();
   }
 
   function bootShareModePlayer() {
-    const playerEl = document.getElementById("player");
-    const playerDesc = document.getElementById("playerDesc");
-    const playerSub = document.getElementById("playerSub");
-    const playerFrameNo = document.getElementById("playerFrameNo");
-    const playerImgStage = document.getElementById("playerImgStage");
+    const shareView = document.querySelector(".share-view");
+    const stage = document.querySelector(".share-stage");
+    const stageBg = document.getElementById("stageBg");
+    const stageVideo = document.getElementById("stageVideo");
+    const stageFrameno = document.getElementById("stageFrameno");
+    const stageFallback = document.getElementById("stageFallback");
+    const stageSubtitle = document.getElementById("stageSubtitle");
     const playerAudio = document.getElementById("playerAudio");
     const playerMusic = document.getElementById("playerMusic");
-    const playerVideo = document.getElementById("playerVideo");
-    const progressBar = document.getElementById("progressBar");
-    const timeReadout = document.getElementById("timeReadout");
-    const playPauseBtn = document.getElementById("playPauseBtn");
+
+    const playBtn = document.getElementById("ctrlPlayPause");
+    const prevBtn = document.getElementById("ctrlPrev");
+    const nextBtn = document.getElementById("ctrlNext");
+    const restartBtn = document.getElementById("ctrlRestart");
+    const viewToggle = document.getElementById("viewToggle");
+    const ctrlTime = document.getElementById("ctrlTime");
+    const ctrlProgress = document.getElementById("ctrlProgress");
+    const ctrlProgressBar = document.getElementById("ctrlProgressBar");
+
     let st = { playing: false, idx: 0, startedAt: 0, elapsedInFrame: 0, rafId: null };
     const frames = () => activeDoc().frames;
     const totalLength = () => frames().reduce((s,f)=>s+(f.duration||0),0);
     const elapsedBeforeIdx = (idx) => { let s=0; for (let i=0;i<idx;i++) s+=frames()[i].duration||0; return s; };
-    async function showFrame(i) {
+    const fmt = (s) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; };
+
+    function highlightActiveTile(idx) {
+      document.querySelectorAll(".share-tile").forEach((t, i) => t.classList.toggle("active", i === idx));
+      if (shareView.dataset.mode === "grid") {
+        const tile = document.querySelector(`.share-tile[data-tile-i="${idx}"]`);
+        if (tile) {
+          const rect = tile.getBoundingClientRect();
+          if (rect.top < 80 || rect.bottom > window.innerHeight - 120) {
+            tile.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }
+      }
+    }
+
+    async function updateStage(i) {
       const f = frames()[i]; if (!f) return;
-      const type = f.imageKey ? mediaTypeFor(f, f.imageKey) : "";
-      const isVid = isVideoType(type);
+      const isVid = f.imageKey && isVideoType(mediaTypeFor(f, f.imageKey));
       if (f.imageKey) {
         const url = await blobUrl(f.imageKey);
         if (isVid) {
-          playerImgStage.style.backgroundImage = "";
-          playerImgStage.classList.add("has-video");
-          if (url) { playerVideo.src = url; playerVideo.currentTime = 0; playerVideo.play().catch(()=>{}); }
+          stageBg.style.backgroundImage = "";
+          stage.classList.add("has-video");
+          if (url) { stageVideo.src = url; stageVideo.currentTime = 0; if (st.playing) stageVideo.play().catch(()=>{}); }
         } else {
-          playerImgStage.classList.remove("has-video");
-          playerVideo.pause(); playerVideo.removeAttribute("src");
-          if (url) playerImgStage.style.backgroundImage = `url("${url}")`;
+          stage.classList.remove("has-video");
+          stageVideo.pause(); stageVideo.removeAttribute("src");
+          if (url) stageBg.style.backgroundImage = `url("${url}")`;
         }
-        playerDesc.classList.remove("fallback"); playerDesc.style.display = "none";
+        stageFallback.style.display = "none";
       } else {
-        playerImgStage.style.backgroundImage = "";
-        playerImgStage.classList.remove("has-video");
-        playerVideo.pause(); playerVideo.removeAttribute("src");
-        playerDesc.classList.add("fallback");
-        playerDesc.textContent = f.description || "(no description)";
-        playerDesc.style.display = "";
+        stageBg.style.backgroundImage = "";
+        stage.classList.remove("has-video");
+        stageVideo.pause(); stageVideo.removeAttribute("src");
+        stageFallback.textContent = f.description || "(no description)";
+        stageFallback.style.display = "";
       }
-      playerSub.textContent = f.subtitle || "";
-      playerSub.style.display = f.subtitle ? "" : "none";
-      playerFrameNo.textContent = `FRAME ${i+1} / ${frames().length}`;
+      stageSubtitle.textContent = f.subtitle || "";
+      stageSubtitle.style.display = f.subtitle ? "" : "none";
+      stageFrameno.textContent = `FRAME ${i+1} / ${frames().length}`;
+    }
+
+    async function showFrame(i) {
+      const f = frames()[i]; if (!f) return;
+      highlightActiveTile(i);
+      updateStage(i);
       if (f.audioKey) {
         const url = await blobUrl(f.audioKey);
         playerAudio.src = url; playerAudio.currentTime = 0;
         if (st.playing) playerAudio.play().catch(()=>{});
-      } else { playerAudio.removeAttribute("src"); }
+      } else {
+        playerAudio.removeAttribute("src");
+      }
     }
-    async function start() {
-      if (frames().length === 0) return;
-      playerEl.style.display = "flex";
-      st = { playing: true, idx: 0, startedAt: performance.now(), elapsedInFrame: 0, rafId: null };
+
+    async function ensureMusicLoaded() {
       const doc = activeDoc();
-      if (doc.musicKey) {
+      if (!doc.musicKey) { playerMusic.removeAttribute("src"); return; }
+      if (!playerMusic.src) {
         const url = await blobUrl(doc.musicKey);
         playerMusic.src = url; playerMusic.volume = 0.45;
-        playerMusic.currentTime = 0; playerMusic.play().catch(()=>{});
-      } else { playerMusic.removeAttribute("src"); }
-      showFrame(0); playPauseBtn.textContent = "⏸ Pause"; tick();
+      }
     }
-    function stop() {
-      st.playing = false; cancelAnimationFrame(st.rafId);
-      playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
-      playerEl.style.display = "none";
-    }
-    function pause() {
-      if (!st.playing) return;
-      st.elapsedInFrame += (performance.now() - st.startedAt) / 1000;
-      st.playing = false; cancelAnimationFrame(st.rafId);
-      playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
-      playPauseBtn.textContent = "▶ Play";
-    }
-    function resume() {
-      if (st.playing) return;
+
+    async function play() {
+      if (frames().length === 0) return;
+      // Restart from beginning if we ended
+      if (playBtn.textContent === "↻") {
+        st.idx = 0; st.elapsedInFrame = 0;
+        await showFrame(0);
+        if (playerMusic.src) playerMusic.currentTime = 0;
+      }
+      await ensureMusicLoaded();
       st.playing = true; st.startedAt = performance.now();
       if (playerAudio.src) playerAudio.play().catch(()=>{});
       if (playerMusic.src) playerMusic.play().catch(()=>{});
-      if (playerVideo.src) playerVideo.play().catch(()=>{});
-      playPauseBtn.textContent = "⏸ Pause"; tick();
+      if (stageVideo.src) stageVideo.play().catch(()=>{});
+      playBtn.textContent = "⏸";
+      tick();
+    }
+    function pauseTransport() {
+      if (!st.playing) return;
+      st.elapsedInFrame += (performance.now() - st.startedAt) / 1000;
+      st.playing = false; cancelAnimationFrame(st.rafId);
+      playerAudio.pause(); playerMusic.pause(); stageVideo.pause();
+      playBtn.textContent = "▶";
+    }
+    function togglePlay() {
+      if (playBtn.textContent === "↻") { play(); return; }
+      st.playing ? pauseTransport() : play();
     }
     function gotoFrame(i) {
       if (i < 0 || i >= frames().length) return;
       st.idx = i; st.elapsedInFrame = 0; st.startedAt = performance.now();
       showFrame(i);
     }
+    function restart() {
+      st.idx = 0; st.elapsedInFrame = 0; st.startedAt = performance.now();
+      if (playerMusic.src) playerMusic.currentTime = 0;
+      showFrame(0);
+      if (!st.playing) play();
+    }
+
     function tick() {
       if (!st.playing) return;
       const f = frames()[st.idx];
@@ -2545,34 +2703,72 @@
       else { inFrame = st.elapsedInFrame + (performance.now() - st.startedAt) / 1000; frameDur = f.duration; }
       const total = totalLength();
       const overall = elapsedBeforeIdx(st.idx) + Math.min(inFrame, frameDur);
-      progressBar.style.width = `${(overall/total)*100}%`;
-      timeReadout.textContent = `${overall.toFixed(1)}s / ${total.toFixed(1)}s`;
+      ctrlProgressBar.style.width = `${(overall/total)*100}%`;
+      ctrlTime.textContent = `${fmt(overall)} / ${fmt(total)}`;
       if (inFrame >= frameDur) {
         if (st.idx >= frames().length - 1) {
-          progressBar.style.width = "100%"; st.playing = false;
-          playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
-          playPauseBtn.textContent = "↻ Replay"; return;
+          ctrlProgressBar.style.width = "100%"; st.playing = false;
+          playerAudio.pause(); playerMusic.pause(); stageVideo.pause();
+          playBtn.textContent = "↻";
+          return;
         }
         st.idx += 1; st.elapsedInFrame = 0; st.startedAt = performance.now();
         showFrame(st.idx);
       }
       st.rafId = requestAnimationFrame(tick);
     }
-    document.getElementById("sharePlayBtn").addEventListener("click", start);
-    document.getElementById("closeBtn").addEventListener("click", stop);
-    document.getElementById("prevBtn").addEventListener("click", () => gotoFrame(st.idx - 1));
-    document.getElementById("nextBtn").addEventListener("click", () => gotoFrame(st.idx + 1));
-    playPauseBtn.addEventListener("click", () => {
-      if (playPauseBtn.textContent.startsWith("↻")) { start(); return; }
-      st.playing ? pause() : resume();
+
+    // Scrub: click anywhere on the progress bar
+    ctrlProgress.addEventListener("click", (e) => {
+      const total = totalLength(); if (!total) return;
+      const rect = ctrlProgress.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const target = pct * total;
+      let acc = 0;
+      for (let i = 0; i < frames().length; i++) {
+        const d = frames()[i].duration || 0;
+        if (target <= acc + d) { gotoFrame(i); return; }
+        acc += d;
+      }
+      gotoFrame(frames().length - 1);
     });
+
+    // Click any tile in the grid to jump to that frame
+    document.addEventListener("click", (e) => {
+      const tile = e.target.closest && e.target.closest(".share-tile");
+      if (!tile) return;
+      const i = parseInt(tile.dataset.tileI, 10);
+      if (isFinite(i)) gotoFrame(i);
+    });
+
+    // View toggle
+    function setView(mode) {
+      shareView.dataset.mode = mode;
+      viewToggle.innerHTML = mode === "theatre" ? "▦ Grid" : "⛶ Theatre";
+      if (mode === "theatre") updateStage(st.idx);
+      else highlightActiveTile(st.idx);
+    }
+    viewToggle.addEventListener("click", () => {
+      setView(shareView.dataset.mode === "theatre" ? "grid" : "theatre");
+    });
+
+    playBtn.addEventListener("click", togglePlay);
+    prevBtn.addEventListener("click", () => gotoFrame(st.idx - 1));
+    nextBtn.addEventListener("click", () => gotoFrame(st.idx + 1));
+    restartBtn.addEventListener("click", restart);
+
     document.addEventListener("keydown", (e) => {
-      if (playerEl.style.display === "none") return;
-      if (e.key === "Escape") stop();
-      if (e.key === " ") { e.preventDefault(); playPauseBtn.click(); }
-      if (e.key === "ArrowRight") gotoFrame(st.idx + 1);
-      if (e.key === "ArrowLeft") gotoFrame(st.idx - 1);
+      if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+      if (e.key === " ") { e.preventDefault(); togglePlay(); }
+      else if (e.key === "ArrowRight") gotoFrame(st.idx + 1);
+      else if (e.key === "ArrowLeft") gotoFrame(st.idx - 1);
+      else if (e.key === "v" || e.key === "V") setView(shareView.dataset.mode === "theatre" ? "grid" : "theatre");
+      else if (e.key === "r" || e.key === "R") restart();
     });
+
+    // Initial paint
+    showFrame(0);
+    ctrlTime.textContent = `0:00 / ${fmt(totalLength())}`;
   }
 
   // --- MP4 export ---
