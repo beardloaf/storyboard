@@ -327,6 +327,31 @@
     font-family: var(--mono); font-size: 12px; letter-spacing: 1px;
     pointer-events: none;
   }
+  /* Focusable to receive paste — selected state shows it's ready for clipboard input */
+  .img-preview { cursor: pointer; }
+  .img-preview:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.3);
+  }
+  .img-preview:focus .paste-hint { display: block; }
+  .img-preview .paste-hint {
+    display: none;
+    position: absolute; top: 8px; right: 8px; z-index: 3;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .5px;
+    color: var(--accent);
+    background: rgba(0,0,0,0.7);
+    padding: 3px 8px; border-radius: 999px;
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+  }
+  .img-preview.pasting::after {
+    content: "Pasting…"; position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent); font-family: var(--mono); font-size: 11px;
+    background: rgba(5,5,5,.85); letter-spacing: 2px;
+    z-index: 4;
+  }
 
   /* Image version counter */
   .img-preview .img-counter {
@@ -1268,8 +1293,9 @@
   function isVideoType(t) { return typeof t === "string" && t.startsWith("video/"); }
 
   function frameImageHtml(f) {
+    const pasteHint = `<div class="paste-hint">⌘V to paste</div>`;
     if (!f.imageKey) {
-      return `<div class="placeholder">Write description<br>→ Generate or upload</div>`;
+      return `<div class="placeholder">Write description<br>→ Generate, upload, paste (⌘V) or drop</div>${pasteHint}`;
     }
     const history = Array.isArray(f.imageHistory) ? f.imageHistory : [];
     const idx = history.indexOf(f.imageKey);
@@ -1284,7 +1310,7 @@
     const mediaEl = isVideoType(type)
       ? `<video data-key="${f.imageKey}" muted loop autoplay playsinline></video>`
       : `<img alt="" data-key="${f.imageKey}" />`;
-    return `${mediaEl}${counter}<div class="corner"><button data-action="clear-image" title="Delete this version">×</button></div>`;
+    return `${mediaEl}${counter}<div class="corner"><button data-action="clear-image" title="Delete this version">×</button></div>${pasteHint}`;
   }
   function hydrateImages(root) {
     root.querySelectorAll('img[data-key],video[data-key]').forEach(el => {
@@ -1317,7 +1343,7 @@
         </div>
         <div class="frame-body">
           <div class="col">
-            <div class="img-preview" data-img="${i}">${frameImageHtml(f)}</div>
+            <div class="img-preview" data-img="${i}" tabindex="0" title="Click to select, then ⌘V / Ctrl+V to paste an image">${frameImageHtml(f)}</div>
             <div class="col-head">
               <label>What you see</label>
               <div class="col-head-actions">
@@ -2127,6 +2153,31 @@
     if (e.key === " ") { e.preventDefault(); playPauseBtn.click(); }
     if (e.key === "ArrowRight") gotoFrame(playState.idx + 1);
     if (e.key === "ArrowLeft") gotoFrame(playState.idx - 1);
+  });
+
+  // Paste from clipboard into a selected (focused) image preview
+  document.addEventListener("paste", async (e) => {
+    const focused = document.activeElement;
+    if (!focused || !focused.classList || !focused.classList.contains("img-preview")) return;
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    let imageItem = null;
+    for (const it of items) {
+      if (it.kind === "file" && (it.type.startsWith("image/") || it.type.startsWith("video/"))) {
+        imageItem = it; break;
+      }
+    }
+    if (!imageItem) return;
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    e.preventDefault();
+    const i = parseInt(focused.dataset.img, 10);
+    if (!isFinite(i)) return;
+    focused.classList.add("pasting");
+    try {
+      await handleImageUpload(i, file);
+    } finally {
+      focused.classList.remove("pasting");
+    }
   });
 
   // Editor hotkeys
