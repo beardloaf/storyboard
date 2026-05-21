@@ -105,17 +105,60 @@
   .brand-row { flex-direction: row !important; align-items: center; gap: 8px; }
   .brand-row .spacer { flex: 1; }
 
-  .doc-picker { display: flex; align-items: center; gap: 6px; }
-  .doc-actions { display: flex; align-items: center; gap: 6px; }
-  .doc-picker select {
-    flex: 1; min-width: 0; padding: 14px 36px 14px 20px; font-size: 14px; border-radius: 999px;
-    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-                      linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-    background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
-    background-size: 5px 5px; background-repeat: no-repeat;
-    -webkit-appearance: none; appearance: none;
+  .doc-picker { display: flex; align-items: center; gap: 8px; position: relative; }
+  .doc-trigger {
+    flex: 1; min-width: 0;
+    height: 40px; padding: 0 16px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--text); font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    transition: border-color .15s;
   }
-  .doc-actions { flex-wrap: wrap; gap: 6px; }
+  .doc-trigger:hover { border-color: var(--accent-soft); }
+  .doc-trigger .doc-name {
+    flex: 1; text-align: left;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .doc-trigger .chevron { color: var(--muted); font-size: 11px; }
+
+  .doc-menu {
+    position: absolute; top: 46px; left: 0; right: 50px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.35);
+    z-index: 40;
+    max-height: 320px; overflow-y: auto;
+  }
+  .doc-item {
+    display: flex; align-items: center; gap: 2px;
+    padding: 2px;
+    border-radius: 8px;
+  }
+  .doc-item:hover { background: var(--panel-2); }
+  .doc-item.active { background: rgba(var(--accent-rgb), .14); }
+  .doc-item .doc-item-name {
+    flex: 1; text-align: left;
+    background: transparent; border: none;
+    color: var(--text); font-size: 13px;
+    padding: 8px 10px; cursor: pointer;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    border-radius: 6px;
+  }
+  .doc-item .doc-item-action {
+    background: transparent; border: none;
+    color: var(--muted);
+    width: 30px; height: 30px;
+    border-radius: 6px;
+    cursor: pointer; font-size: 13px;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s;
+  }
+  .doc-item .doc-item-action:hover { background: var(--line); color: var(--text); }
 
   .config {
     display: flex; align-items: center; gap: 6px;
@@ -146,10 +189,12 @@
     border: 1px solid var(--line);
     background: var(--panel-2);
     color: var(--text);
-    padding: 9px 18px;
-    border-radius: 999px;
+    height: 40px;
+    padding: 0 16px;
+    border-radius: 10px;
     cursor: pointer; font-size: 13px;
     white-space: nowrap;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     transition: background .15s, border-color .15s, color .15s;
   }
   .btn:hover { border-color: var(--accent-soft); }
@@ -160,14 +205,14 @@
   .btn.primary:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
   .btn.ghost { background: transparent; }
   .btn.icon {
-    padding: 0; width: 32px; height: 32px;
-    display: inline-flex; align-items: center; justify-content: center;
-    font-size: 13px; border-radius: 999px;
+    width: 40px; padding: 0;
+    font-size: 14px;
   }
   .btn.tiny {
-    padding: 4px 12px; font-size: 11px; font-family: var(--mono);
-    letter-spacing: .5px; border-radius: 999px;
+    height: 28px; padding: 0 10px; font-size: 11px;
+    letter-spacing: .3px; border-radius: 8px; gap: 4px;
   }
+  .btn.tiny.icon { width: 28px; padding: 0; }
   .btn.danger { color: var(--danger); border-color: transparent; background: transparent; }
   .btn.danger:hover { background: rgba(255,93,93,.08); }
 
@@ -196,6 +241,9 @@
   }
   .music-count {
     font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: .5px;
+  }
+  .soundtrack-header {
+    display: flex; align-items: center; gap: 4px;
   }
   .music-time {
     font-family: var(--mono); font-size: 11px; color: var(--muted);
@@ -794,18 +842,17 @@
     <div class="section brand-row">
       <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
       <span class="spacer"></span>
-      <button class="btn icon" id="settingsBtn" title="Settings, API keys, voice">⚙</button>
+      <button class="btn" id="settingsBtn" title="Settings, API keys, voice">⚙ Settings</button>
     </div>
 
     <div class="section">
       <div class="doc-picker">
-        <select id="docSelect" title="Storyboard"></select>
-      </div>
-      <div class="doc-actions">
-        <button class="btn tiny" id="newDoc" title="New storyboard">+ New</button>
-        <button class="btn tiny" id="renameDoc" title="Rename">✎ Rename</button>
-        <button class="btn tiny" id="duplicateDoc" title="Duplicate">⧉ Duplicate</button>
-        <button class="btn tiny" id="deleteDoc" title="Delete">🗑 Delete</button>
+        <button class="doc-trigger" id="docTrigger" type="button">
+          <span class="doc-name" id="docName">Untitled</span>
+          <span class="chevron">▾</span>
+        </button>
+        <button class="btn icon" id="newDoc" title="New storyboard">+</button>
+        <div class="doc-menu" id="docMenu" style="display:none"></div>
       </div>
     </div>
 
@@ -819,22 +866,22 @@
     <div class="section-divider"></div>
 
     <div class="section music">
-      <span class="label-mono">Soundtrack</span>
+      <div class="soundtrack-header" id="musicSecondary" style="--has:0">
+        <span class="label-mono">Soundtrack</span>
+        <span class="spacer" style="flex:1"></span>
+        <button class="btn tiny icon" id="musicPrev" title="Previous track">‹</button>
+        <span class="music-count" id="musicCount"></span>
+        <button class="btn tiny icon" id="musicNext" title="Next track">›</button>
+        <button class="btn tiny icon" id="clearMusic" title="Delete track">🗑</button>
+      </div>
       <div class="wave-mini" id="musicWave">
         <div class="placeholder">No track yet. Write a prompt, then Generate.</div>
       </div>
       <div class="row" id="musicControls" style="display:none">
         <button class="btn tiny" id="musicPlayPause" title="Play/Pause">▶ Play</button>
-        <button class="btn tiny" id="musicStop" title="Stop">⏹</button>
-        <button class="btn tiny" id="musicRestart" title="Restart">↻</button>
+        <button class="btn tiny icon" id="musicStop" title="Stop">⏹</button>
+        <button class="btn tiny icon" id="musicRestart" title="Restart">↻</button>
         <span class="music-time" id="musicTime">0:00 / 0:00</span>
-      </div>
-      <div class="row" id="musicSecondary" style="display:none">
-        <button class="btn tiny" id="musicPrev" title="Previous track">‹</button>
-        <span class="music-count" id="musicCount"></span>
-        <button class="btn tiny" id="musicNext" title="Next track">›</button>
-        <span class="spacer" style="flex:1"></span>
-        <button class="btn tiny" id="clearMusic">Delete</button>
       </div>
       <button class="btn primary" id="genMusic">⚡ Generate</button>
       <textarea id="musicPrompt" placeholder="Cinematic ambient, slow strings, melancholic… (describe genre, mood, instruments, tempo)"></textarea>
@@ -1271,17 +1318,35 @@
   const framesEl = document.getElementById("frames");
   const summaryLeft = document.getElementById("summaryLeft");
   const summaryRight = document.getElementById("summaryRight");
-  const docSelect = document.getElementById("docSelect");
+  const docTrigger = document.getElementById("docTrigger");
+  const docMenu = document.getElementById("docMenu");
+  const docName = document.getElementById("docName");
 
   function renderDocPicker() {
-    docSelect.innerHTML = "";
+    docName.textContent = store.active;
+    docMenu.innerHTML = "";
     Object.keys(store.docs).sort().forEach(name => {
-      const opt = document.createElement("option");
-      opt.value = name; opt.textContent = name;
-      if (name === store.active) opt.selected = true;
-      docSelect.appendChild(opt);
+      const safe = escapeHtml(name);
+      const row = document.createElement("div");
+      row.className = "doc-item" + (name === store.active ? " active" : "");
+      row.innerHTML = `
+        <button class="doc-item-name" data-doc-action="select" data-name="${safe}">${safe}</button>
+        <button class="doc-item-action" data-doc-action="rename"    data-name="${safe}" title="Rename">✎</button>
+        <button class="doc-item-action" data-doc-action="duplicate" data-name="${safe}" title="Duplicate">⧉</button>
+        <button class="doc-item-action" data-doc-action="delete"    data-name="${safe}" title="Delete">🗑</button>`;
+      docMenu.appendChild(row);
     });
   }
+
+  function openDocMenu() { docMenu.style.display = "block"; }
+  function closeDocMenu() { docMenu.style.display = "none"; }
+  docTrigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    docMenu.style.display = docMenu.style.display === "none" ? "block" : "none";
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".doc-picker")) closeDocMenu();
+  });
 
   function fmtSec(s) {
     if (!isFinite(s) || s < 0) s = 0;
@@ -1302,6 +1367,10 @@
     const mw = document.getElementById("musicWave");
     const audio = document.getElementById("musicAudio");
     mw.innerHTML = "";
+    const countEl = document.getElementById("musicCount");
+    const prevBtn = document.getElementById("musicPrev");
+    const nextBtn = document.getElementById("musicNext");
+    const clearBtn = document.getElementById("clearMusic");
     if (doc.musicKey) {
       const c = document.createElement("canvas");
       mw.appendChild(c);
@@ -1310,13 +1379,10 @@
       mw.appendChild(overlay);
       mw.classList.add("has-audio");
       mc.style.display = "flex";
-      ms.style.display = "flex";
       const history = Array.isArray(doc.musicHistory) ? doc.musicHistory : [];
       const idx = history.indexOf(doc.musicKey);
       const total = history.length;
-      const countEl = document.getElementById("musicCount");
-      const prevBtn = document.getElementById("musicPrev");
-      const nextBtn = document.getElementById("musicNext");
+      clearBtn.style.display = "";
       if (total > 1) {
         countEl.textContent = `${idx+1}/${total}`;
         prevBtn.style.display = "";
@@ -1344,7 +1410,10 @@
       ph.textContent = "No track yet. Write a prompt, then Generate.";
       mw.appendChild(ph);
       mc.style.display = "none";
-      ms.style.display = "none";
+      countEl.textContent = "";
+      prevBtn.style.display = "none";
+      nextBtn.style.display = "none";
+      clearBtn.style.display = "none";
       audio.removeAttribute("src");
     }
   }
@@ -1695,8 +1764,6 @@
     doc.frames.push(makeFrame(doc.frameSec));
     save(); renderEditor();
   });
-  docSelect.addEventListener("change", e => { store.active = e.target.value; save(); renderAll(); });
-
   document.getElementById("newDoc").addEventListener("click", async () => {
     const name = await promptModal("New storyboard", "Name", "");
     if (!name) return;
@@ -1705,18 +1772,44 @@
     store.active = finalName;
     save(); renderAll();
   });
-  document.getElementById("renameDoc").addEventListener("click", async () => {
-    const current = store.active;
-    const name = await promptModal("Rename storyboard", `Currently: "${current}"`, current);
-    if (!name || name.trim() === current) return;
-    const finalName = uniqueName(name.trim());
+
+  // Dropdown menu actions (per-item)
+  docMenu.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-doc-action]");
+    if (!btn) return;
+    const action = btn.dataset.docAction;
+    const name = btn.dataset.name;
+    if (action === "select") {
+      store.active = name; save(); closeDocMenu(); renderAll();
+    } else if (action === "rename") {
+      await renameDocByName(name);
+    } else if (action === "duplicate") {
+      await duplicateDocByName(name);
+    } else if (action === "delete") {
+      deleteDocByName(name);
+    }
+  });
+
+  async function renameDocByName(current) {
+    const newRaw = await promptModal("Rename storyboard", `Currently: "${current}"`, current);
+    if (!newRaw || newRaw.trim() === current) return;
+    const finalName = uniqueName(newRaw.trim());
     store.docs[finalName] = store.docs[current];
     delete store.docs[current];
-    store.active = finalName;
+    if (store.active === current) store.active = finalName;
     save(); renderAll();
-  });
-  document.getElementById("duplicateDoc").addEventListener("click", async () => {
-    const sourceName = store.active;
+  }
+
+  function deleteDocByName(name) {
+    const names = Object.keys(store.docs);
+    if (names.length <= 1) { alert("Can't delete your only storyboard."); return; }
+    if (!confirm(`Delete "${name}"? This can't be undone.`)) return;
+    delete store.docs[name];
+    if (store.active === name) store.active = Object.keys(store.docs).sort()[0];
+    save(); renderAll();
+  }
+
+  async function duplicateDocByName(sourceName) {
     const source = store.docs[sourceName];
     if (!source) return;
     const newName = uniqueName(`${sourceName} copy`);
@@ -1815,16 +1908,7 @@
       hideExportStatus();
       alert("Duplicate failed: " + e.message);
     }
-  });
-
-  document.getElementById("deleteDoc").addEventListener("click", () => {
-    const names = Object.keys(store.docs);
-    if (names.length <= 1) { alert("Can't delete your only storyboard."); return; }
-    if (!confirm(`Delete "${store.active}"? This can't be undone.`)) return;
-    delete store.docs[store.active];
-    store.active = Object.keys(store.docs).sort()[0];
-    save(); renderAll();
-  });
+  }
 
   // --- music ---
   document.getElementById("musicPrompt").addEventListener("input", e => {
