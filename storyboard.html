@@ -238,8 +238,9 @@
   .frame-head .grip:hover { color: var(--accent); }
   .frame-head .grip:active { cursor: grabbing; }
   .frame-head .num { color: var(--accent); font-weight: 500; }
-  .frame-head .num-input {
-    width: 38px; padding: 3px 6px; font-size: 11px; text-align: center;
+  .frame-head .num-input,
+  .frame-head .dur input {
+    width: 48px; padding: 3px 6px; font-size: 11px;
     font-family: var(--mono); font-weight: 500;
     color: var(--accent);
     background: transparent;
@@ -247,17 +248,17 @@
     border-radius: 999px;
     transition: background .15s, border-color .15s, color .15s;
   }
-  .frame-head .num-input:hover { border-color: var(--line); }
-  .frame-head .num-input:focus {
+  .frame-head .num-input { text-align: center; }
+  .frame-head .dur input { width: 66px; text-align: right; }
+  .frame-head .num-input:hover,
+  .frame-head .dur input:hover { border-color: var(--line); }
+  .frame-head .num-input:focus,
+  .frame-head .dur input:focus {
     background: var(--panel-2); border-color: var(--accent); color: var(--text);
     outline: none;
   }
   .frame-head .spacer { flex: 1; }
   .frame-head .dur { display: flex; align-items: center; gap: 4px; font-size: 10px; }
-  .frame-head .dur input {
-    width: 66px; padding: 4px 8px; font-size: 11px; text-align: center;
-    font-family: var(--mono); border-radius: 999px;
-  }
   .frame-head .remove {
     background: transparent; border: none; color: var(--muted);
     cursor: pointer; padding: 2px 5px; font-size: 14px; line-height: 1; border-radius: 6px;
