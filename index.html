@@ -702,6 +702,11 @@
     color: var(--muted); font-family: var(--mono); font-size: 12px; letter-spacing: 1px;
     padding: 80px 20px; text-align: center;
   }
+  #playerOverlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: var(--bg);
+    overflow-y: auto;
+  }
 
   /* Export progress */
   .export-status {
@@ -802,25 +807,6 @@
       </div>
     </div>
   </main>
-</div>
-
-<div class="player" id="player" style="display:none">
-  <div class="stage">
-    <div class="img-stage" id="playerImgStage"><video id="playerVideo" muted loop playsinline></video></div>
-    <div class="frameno" id="playerFrameNo"></div>
-    <button class="btn close" id="closeBtn">Close ✕</button>
-    <div class="description" id="playerDesc"></div>
-    <div class="subtitle" id="playerSub"></div>
-    <audio id="playerAudio"></audio>
-    <audio id="playerMusic" loop></audio>
-  </div>
-  <div class="progress"><div class="bar" id="progressBar"></div></div>
-  <div class="controls">
-    <button class="btn" id="prevBtn">⏮ Prev</button>
-    <button class="btn primary" id="playPauseBtn">⏸ Pause</button>
-    <button class="btn" id="nextBtn">Next ⏭</button>
-    <div class="time" id="timeReadout">0.0s / 0.0s</div>
-  </div>
 </div>
 
 <div class="modal-backdrop" id="modalBackdrop">
@@ -2014,142 +2000,93 @@
     }
   }
 
-  // --- player ---
-  const playerEl = document.getElementById("player");
-  const playerDesc = document.getElementById("playerDesc");
-  const playerSub = document.getElementById("playerSub");
-  const playerFrameNo = document.getElementById("playerFrameNo");
-  const playerImgStage = document.getElementById("playerImgStage");
-  const playerAudio = document.getElementById("playerAudio");
-  const playerMusic = document.getElementById("playerMusic");
-  const playerVideo = document.getElementById("playerVideo");
-  const progressBar = document.getElementById("progressBar");
-  const timeReadout = document.getElementById("timeReadout");
-  const playPauseBtn = document.getElementById("playPauseBtn");
-
-  let playState = { playing:false, idx:0, startedAt:0, elapsedInFrame:0, rafId:null };
-
-  function frames() { return activeDoc().frames; }
-  function totalLength() { return frames().reduce((s,f)=>s+f.duration, 0); }
-  function elapsedBeforeIdx(idx) { let s=0; for (let i=0;i<idx;i++) s+=frames()[i].duration; return s; }
-
-  async function showFrame(i) {
-    const f = frames()[i]; if (!f) return;
-    const type = f.imageKey ? mediaTypeFor(f, f.imageKey) : "";
-    const isVideo = isVideoType(type);
-    if (f.imageKey) {
-      const url = await blobUrl(f.imageKey);
-      if (isVideo) {
-        playerImgStage.style.backgroundImage = "";
-        playerImgStage.classList.add("has-video");
-        if (url) { playerVideo.src = url; playerVideo.currentTime = 0; playerVideo.play().catch(()=>{}); }
+  // --- unified player overlay (used by both the editor Play button and share-mode) ---
+  function openPlayer({ doc, name, closeable }) {
+    if (!doc || !doc.frames || doc.frames.length === 0) {
+      alert("No frames to play.");
+      return null;
+    }
+    const totalDur = doc.frames.reduce((s, f) => s + (f.duration || 0), 0);
+    const tiles = doc.frames.map((f, i) => {
+      let mediaHtml;
+      if (f.imageKey) {
+        const t = mediaTypeFor(f, f.imageKey);
+        mediaHtml = isVideoType(t)
+          ? `<video data-key="${f.imageKey}" muted loop autoplay playsinline></video>`
+          : `<img data-key="${f.imageKey}" alt="" />`;
       } else {
-        playerImgStage.classList.remove("has-video");
-        playerVideo.pause(); playerVideo.removeAttribute("src");
-        if (url) playerImgStage.style.backgroundImage = `url("${url}")`;
+        mediaHtml = `<div class="no-image">${escapeHtml(f.description || "No image")}</div>`;
       }
-      playerDesc.classList.remove("fallback");
-      playerDesc.style.display = "none";
-    } else {
-      playerImgStage.style.backgroundImage = "";
-      playerImgStage.classList.remove("has-video");
-      playerVideo.pause(); playerVideo.removeAttribute("src");
-      playerDesc.classList.add("fallback");
-      playerDesc.textContent = f.description || "(no description)";
-      playerDesc.style.display = "";
+      return `
+        <div class="share-tile" data-tile-i="${i}">
+          <div class="thumb">
+            <span class="index">#${String(i+1).padStart(2,"0")}</span>
+            ${mediaHtml}
+          </div>
+          <div class="tile-subtitle">${escapeHtml(f.subtitle || "")}</div>
+        </div>`;
+    }).join("");
+
+    const overlay = document.createElement("div");
+    overlay.id = "playerOverlay";
+    overlay.innerHTML = `
+      <div class="share-view" data-mode="theatre">
+        <div class="share-header">
+          <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
+          <h1>${escapeHtml(name || "Untitled")}</h1>
+          <div class="meta">${doc.frames.length} FRAME${doc.frames.length === 1 ? "" : "S"} · ${totalDur.toFixed(1)}S</div>
+          ${closeable ? `<button class="btn" id="overlayClose">Close ✕</button>` : ""}
+        </div>
+        <div class="share-content">
+          <div class="share-grid">${tiles}</div>
+          <div class="share-stage">
+            <div class="bg" id="stageBg"></div>
+            <video id="stageVideo" muted loop playsinline></video>
+            <div class="stage-frameno" id="stageFrameno"></div>
+            <div class="stage-fallback" id="stageFallback" style="display:none"></div>
+            <div class="stage-subtitle" id="stageSubtitle"></div>
+          </div>
+        </div>
+        ${!closeable ? `<div class="footer">Made with <a href="${location.origin}${location.pathname}" target="_blank">storyboard</a></div>` : ""}
+        <audio id="playerAudio"></audio>
+        <audio id="playerMusic" loop></audio>
+      </div>
+      <div class="share-controls">
+        <div class="transport">
+          <button id="ctrlRestart" title="Restart (R)">↻</button>
+          <button id="ctrlPrev" title="Previous frame (←)">⏮</button>
+          <button id="ctrlPlayPause" class="play" title="Play / Pause (Space)">▶</button>
+          <button id="ctrlNext" title="Next frame (→)">⏭</button>
+        </div>
+        <div class="time" id="ctrlTime">0:00 / 0:00</div>
+        <div class="progress" id="ctrlProgress"><div class="bar" id="ctrlProgressBar"></div></div>
+        <button class="view-toggle" id="viewToggle" title="Switch view (V)">▦ Grid</button>
+      </div>`;
+    document.body.appendChild(overlay);
+    hydrateImages(overlay);
+
+    const closeFn = () => {
+      try {
+        const sv = document.getElementById("stageVideo");
+        const pa = document.getElementById("playerAudio");
+        const pm = document.getElementById("playerMusic");
+        if (sv) sv.pause();
+        if (pa) pa.pause();
+        if (pm) pm.pause();
+      } catch {}
+      overlay.remove();
+    };
+
+    if (closeable) {
+      overlay.querySelector("#overlayClose").addEventListener("click", closeFn);
     }
-    playerSub.textContent = f.subtitle || "";
-    playerSub.style.display = f.subtitle ? "" : "none";
-    playerFrameNo.textContent = `FRAME ${i+1} / ${frames().length}`;
-    if (f.audioKey) {
-      const url = await blobUrl(f.audioKey);
-      playerAudio.src = url; playerAudio.currentTime = 0;
-      if (playState.playing) playerAudio.play().catch(()=>{});
-    } else {
-      playerAudio.removeAttribute("src");
-    }
+
+    bootShareModePlayer();
+    return closeFn;
   }
 
-  async function startPlayer() {
-    if (frames().length === 0) return;
-    playerEl.style.display = "flex";
-    playState = { playing:true, idx:0, startedAt:performance.now(), elapsedInFrame:0, rafId:null };
-    const doc = activeDoc();
-    if (doc.musicKey) {
-      const url = await blobUrl(doc.musicKey);
-      playerMusic.src = url; playerMusic.volume = 0.45;
-      playerMusic.currentTime = 0; playerMusic.play().catch(()=>{});
-    } else { playerMusic.removeAttribute("src"); }
-    showFrame(0); playPauseBtn.textContent = "⏸ Pause"; tick();
-  }
-  function stopPlayer() {
-    playState.playing = false; cancelAnimationFrame(playState.rafId);
-    playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
-    playerEl.style.display = "none";
-  }
-  function pause() {
-    if (!playState.playing) return;
-    playState.elapsedInFrame += (performance.now() - playState.startedAt) / 1000;
-    playState.playing = false; cancelAnimationFrame(playState.rafId);
-    playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
-    playPauseBtn.textContent = "▶ Play";
-  }
-  function resume() {
-    if (playState.playing) return;
-    playState.playing = true; playState.startedAt = performance.now();
-    if (playerAudio.src) playerAudio.play().catch(()=>{});
-    if (playerMusic.src) playerMusic.play().catch(()=>{});
-    if (playerVideo.src) playerVideo.play().catch(()=>{});
-    playPauseBtn.textContent = "⏸ Pause"; tick();
-  }
-  function gotoFrame(i) {
-    if (i < 0 || i >= frames().length) return;
-    playState.idx = i; playState.elapsedInFrame = 0; playState.startedAt = performance.now();
-    showFrame(i);
-  }
-  function tick() {
-    if (!playState.playing) return;
-    const f = frames()[playState.idx];
-    const hasAudio = !!(f.audioKey && playerAudio.src && isFinite(playerAudio.duration) && playerAudio.duration > 0);
-    let inFrame, frameDur;
-    if (hasAudio) {
-      inFrame = playerAudio.currentTime;
-      frameDur = playerAudio.duration;
-    } else {
-      const now = performance.now();
-      inFrame = playState.elapsedInFrame + (now - playState.startedAt) / 1000;
-      frameDur = f.duration;
-    }
-    const total = totalLength();
-    const overall = elapsedBeforeIdx(playState.idx) + Math.min(inFrame, frameDur);
-    progressBar.style.width = `${(overall/total)*100}%`;
-    timeReadout.textContent = `${overall.toFixed(1)}s / ${total.toFixed(1)}s`;
-    if (inFrame >= frameDur) {
-      if (playState.idx >= frames().length - 1) {
-        progressBar.style.width = "100%"; playState.playing = false;
-        playerAudio.pause(); playerMusic.pause(); playerVideo.pause();
-        playPauseBtn.textContent = "↻ Replay"; return;
-      }
-      playState.idx += 1; playState.elapsedInFrame = 0; playState.startedAt = performance.now();
-      showFrame(playState.idx);
-    }
-    playState.rafId = requestAnimationFrame(tick);
-  }
-
-  document.getElementById("playBtn").addEventListener("click", startPlayer);
-  document.getElementById("closeBtn").addEventListener("click", stopPlayer);
-  document.getElementById("prevBtn").addEventListener("click", () => gotoFrame(playState.idx - 1));
-  document.getElementById("nextBtn").addEventListener("click", () => gotoFrame(playState.idx + 1));
-  playPauseBtn.addEventListener("click", () => {
-    if (playPauseBtn.textContent.startsWith("↻")) { startPlayer(); return; }
-    playState.playing ? pause() : resume();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (playerEl.style.display === "none") return;
-    if (e.key === "Escape") stopPlayer();
-    if (e.key === " ") { e.preventDefault(); playPauseBtn.click(); }
-    if (e.key === "ArrowRight") gotoFrame(playState.idx + 1);
-    if (e.key === "ArrowLeft") gotoFrame(playState.idx - 1);
+  document.getElementById("playBtn").addEventListener("click", () => {
+    openPlayer({ doc: activeDoc(), name: store.active, closeable: true });
   });
 
   // Paste from clipboard into a selected (focused) image preview
@@ -2179,7 +2116,7 @@
 
   // Editor hotkeys
   document.addEventListener("keydown", (e) => {
-    if (playerEl.style.display !== "none") return; // player has its own shortcuts
+    if (document.getElementById("playerOverlay")) return; // overlay has its own shortcuts
     // Cmd+Enter (Mac) / Ctrl+Enter — add a new frame, even from inside a textarea
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
@@ -2559,60 +2496,9 @@
     }
     // Replace the app's state with a single in-memory "share" doc.
     store = { active: bundle.name || "Shared", docs: { [bundle.name || "Shared"]: doc } };
-    const totalDur = doc.frames.reduce((s, f) => s + (f.duration || 0), 0);
-    const tiles = doc.frames.map((f, i) => {
-      let mediaHtml;
-      if (f.imageKey) {
-        const t = mediaTypeFor(f, f.imageKey);
-        mediaHtml = isVideoType(t)
-          ? `<video data-key="${f.imageKey}" muted loop autoplay playsinline></video>`
-          : `<img data-key="${f.imageKey}" alt="" />`;
-      } else {
-        mediaHtml = `<div class="no-image">${escapeHtml(f.description || "No image")}</div>`;
-      }
-      return `
-        <div class="share-tile" data-tile-i="${i}">
-          <div class="thumb">
-            <span class="index">#${String(i+1).padStart(2,"0")}</span>
-            ${mediaHtml}
-          </div>
-          <div class="tile-subtitle">${escapeHtml(f.subtitle || "")}</div>
-        </div>`;
-    }).join("");
-    document.body.innerHTML = `
-      <div class="share-view" data-mode="theatre">
-        <div class="share-header">
-          <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
-          <h1>${escapeHtml(bundle.name || "Untitled")}</h1>
-          <div class="meta">${doc.frames.length} FRAME${doc.frames.length === 1 ? "" : "S"} · ${totalDur.toFixed(1)}S</div>
-        </div>
-        <div class="share-content">
-          <div class="share-grid">${tiles}</div>
-          <div class="share-stage">
-            <div class="bg" id="stageBg"></div>
-            <video id="stageVideo" muted loop playsinline></video>
-            <div class="stage-frameno" id="stageFrameno"></div>
-            <div class="stage-fallback" id="stageFallback" style="display:none"></div>
-            <div class="stage-subtitle" id="stageSubtitle"></div>
-          </div>
-        </div>
-        <div class="footer">Made with <a href="${location.origin}${location.pathname}" target="_blank">storyboard</a></div>
-        <audio id="playerAudio"></audio>
-        <audio id="playerMusic" loop></audio>
-      </div>
-      <div class="share-controls">
-        <div class="transport">
-          <button id="ctrlRestart" title="Restart (R)">↻</button>
-          <button id="ctrlPrev" title="Previous frame (←)">⏮</button>
-          <button id="ctrlPlayPause" class="play" title="Play / Pause (Space)">▶</button>
-          <button id="ctrlNext" title="Next frame (→)">⏭</button>
-        </div>
-        <div class="time" id="ctrlTime">0:00 / 0:00</div>
-        <div class="progress" id="ctrlProgress"><div class="bar" id="ctrlProgressBar"></div></div>
-        <button class="view-toggle" id="viewToggle" title="Switch view (V)">▦ Grid</button>
-      </div>`;
-    hydrateImages(document);
-    bootShareModePlayer();
+    // Clear any editor markup that was already in body (we're in share-only mode)
+    document.body.innerHTML = "";
+    openPlayer({ doc, name: bundle.name || "Shared", closeable: false });
   }
 
   function bootShareModePlayer() {
