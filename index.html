@@ -2580,7 +2580,7 @@
         </div>`;
     }).join("");
     document.body.innerHTML = `
-      <div class="share-view" data-mode="grid">
+      <div class="share-view" data-mode="theatre">
         <div class="share-header">
           <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
           <h1>${escapeHtml(bundle.name || "Untitled")}</h1>
@@ -2609,7 +2609,7 @@
         </div>
         <div class="time" id="ctrlTime">0:00 / 0:00</div>
         <div class="progress" id="ctrlProgress"><div class="bar" id="ctrlProgressBar"></div></div>
-        <button class="view-toggle" id="viewToggle" title="Switch view (V)">⛶ Theatre</button>
+        <button class="view-toggle" id="viewToggle" title="Switch view (V)">▦ Grid</button>
       </div>`;
     hydrateImages(document);
     bootShareModePlayer();
@@ -2814,9 +2814,15 @@
       else if (e.key === "r" || e.key === "R") restart();
     });
 
-    // Initial paint
-    showFrame(0);
-    ctrlTime.textContent = `0:00 / ${fmt(totalLength())}`;
+    // Initial paint + try to autoplay. Browsers may block playback that includes audio
+    // until the user interacts; in that case the visuals still tick and the user can
+    // hit ▶ to start sound. Password-protected shares already had an interaction
+    // (the unlock), so autoplay usually succeeds there.
+    (async () => {
+      await showFrame(0);
+      ctrlTime.textContent = `0:00 / ${fmt(totalLength())}`;
+      try { await play(); } catch (_) { /* user can press ▶ */ }
+    })();
   }
 
   // --- MP4 export ---
