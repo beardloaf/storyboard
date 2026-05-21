@@ -238,6 +238,20 @@
   .frame-head .grip:hover { color: var(--accent); }
   .frame-head .grip:active { cursor: grabbing; }
   .frame-head .num { color: var(--accent); font-weight: 500; }
+  .frame-head .num-input {
+    width: 38px; padding: 3px 6px; font-size: 11px; text-align: center;
+    font-family: var(--mono); font-weight: 500;
+    color: var(--accent);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .frame-head .num-input:hover { border-color: var(--line); }
+  .frame-head .num-input:focus {
+    background: var(--panel-2); border-color: var(--accent); color: var(--text);
+    outline: none;
+  }
   .frame-head .spacer { flex: 1; }
   .frame-head .dur { display: flex; align-items: center; gap: 4px; font-size: 10px; }
   .frame-head .dur input {
@@ -469,32 +483,86 @@
   .modal a { color: var(--accent-2); text-decoration: none; }
   .modal a:hover { text-decoration: underline; }
 
-  /* Shared-view (view-only) landing */
+  /* Shared-view (view-only) landing — contact-sheet grid */
   .share-view {
     min-height: 100vh;
     display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: 40px 24px; text-align: center; gap: 20px;
+    padding: 28px 32px 40px;
+    gap: 24px;
   }
   .share-view .brand img { max-height: 28px; }
-  .share-view h1 {
-    margin: 0; font-size: clamp(28px, 4vw, 44px);
-    font-weight: 600; letter-spacing: -0.5px;
+  .share-view .share-header {
+    display: flex; align-items: center; gap: 20px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .share-view .share-header h1 {
+    flex: 1; margin: 0; font-size: clamp(20px, 2.6vw, 30px);
+    font-weight: 600; letter-spacing: -0.3px;
   }
   .share-view .meta {
-    color: var(--muted); font-family: var(--mono); font-size: 12px;
+    color: var(--muted); font-family: var(--mono); font-size: 11px;
     letter-spacing: 1px; text-transform: uppercase;
   }
   .share-view .play-cta {
-    padding: 16px 32px; font-size: 16px; margin-top: 12px;
+    padding: 12px 26px; font-size: 14px;
   }
+  .share-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+  @media (max-width: 1100px) { .share-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 760px)  { .share-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 480px)  { .share-grid { grid-template-columns: 1fr; } }
+  .share-tile {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: border-color .15s, transform .15s;
+  }
+  .share-tile:hover { border-color: var(--line-2); }
+  .share-tile .thumb {
+    aspect-ratio: 16 / 9;
+    background: #050505;
+    position: relative; overflow: hidden;
+  }
+  .share-tile .thumb img,
+  .share-tile .thumb video {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .share-tile .thumb .index {
+    position: absolute; top: 8px; left: 8px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 1px;
+    color: rgba(255,255,255,.85);
+    background: rgba(0,0,0,.6);
+    padding: 2px 8px; border-radius: 999px;
+    backdrop-filter: blur(6px);
+  }
+  .share-tile .thumb .no-image {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: #444; font-family: var(--mono); font-size: 10px;
+    text-align: center; padding: 0 12px;
+  }
+  .share-tile .tile-subtitle {
+    padding: 10px 14px 14px;
+    font-size: 13px; line-height: 1.4;
+    color: var(--text);
+  }
+  .share-tile .tile-subtitle:empty { display: none; }
   .share-view .footer {
-    margin-top: 32px; font-size: 12px; color: var(--muted);
+    margin-top: auto; padding-top: 16px;
+    font-size: 12px; color: var(--muted);
+    border-top: 1px solid var(--line);
   }
   .share-view .footer a { color: var(--accent-soft); text-decoration: none; }
   .share-view .footer a:hover { text-decoration: underline; }
   .share-loading {
     color: var(--muted); font-family: var(--mono); font-size: 12px; letter-spacing: 1px;
+    padding: 80px 20px; text-align: center;
   }
 
   /* Export progress */
@@ -1122,7 +1190,7 @@
       row.innerHTML = `
         <div class="frame-head">
           <span class="grip" draggable="true" data-frame-idx="${i}" title="Drag to reorder">⋮⋮</span>
-          <span class="num">#${String(i+1).padStart(2,"0")}</span>
+          <input type="number" class="num-input" min="1" max="${doc.frames.length}" value="${i+1}" data-i="${i}" data-k="position" title="Change frame position" />
           <span>${formatTime(start)} – ${formatTime(start + f.duration)}</span>
           <span class="spacer"></span>
           <span class="dur">
@@ -1285,6 +1353,7 @@
     const t = e.target;
     const i = +t.dataset.i; const k = t.dataset.k;
     if (Number.isNaN(i) || !k) return;
+    if (k === "position") return; // handled on `change`, not on every keystroke
     const doc = activeDoc();
     if (k === "duration") {
       doc.frames[i].duration = Math.max(0.1, parseFloat(t.value) || 1);
@@ -1293,6 +1362,26 @@
       doc.frames[i][k] = t.value;
       save();
     }
+  });
+
+  framesEl.addEventListener("change", e => {
+    const t = e.target;
+    const i = +t.dataset.i; const k = t.dataset.k;
+    if (Number.isNaN(i) || k !== "position") return;
+    const doc = activeDoc();
+    const requested = parseInt(t.value, 10);
+    if (!isFinite(requested)) { renderEditor(); return; }
+    const newPos = Math.max(1, Math.min(doc.frames.length, requested)) - 1;
+    if (newPos === i) { renderEditor(); return; }
+    const [moved] = doc.frames.splice(i, 1);
+    doc.frames.splice(newPos, 0, moved);
+    save();
+    renderEditor();
+    // Refocus the input at its new index so further edits feel continuous
+    requestAnimationFrame(() => {
+      const nextInput = framesEl.querySelector(`.num-input[data-i="${newPos}"]`);
+      if (nextInput) { nextInput.focus(); nextInput.select(); }
+    });
   });
 
   framesEl.addEventListener("click", async e => {
@@ -2307,12 +2396,34 @@
     // Replace the app's state with a single in-memory "share" doc.
     store = { active: bundle.name || "Shared", docs: { [bundle.name || "Shared"]: doc } };
     const totalDur = doc.frames.reduce((s, f) => s + (f.duration || 0), 0);
+    const tiles = doc.frames.map((f, i) => {
+      let mediaHtml;
+      if (f.imageKey) {
+        const t = mediaTypeFor(f, f.imageKey);
+        mediaHtml = isVideoType(t)
+          ? `<video data-key="${f.imageKey}" muted loop autoplay playsinline></video>`
+          : `<img data-key="${f.imageKey}" alt="" />`;
+      } else {
+        mediaHtml = `<div class="no-image">${escapeHtml(f.description || "No image")}</div>`;
+      }
+      return `
+        <div class="share-tile">
+          <div class="thumb">
+            <span class="index">#${String(i+1).padStart(2,"0")}</span>
+            ${mediaHtml}
+          </div>
+          <div class="tile-subtitle">${escapeHtml(f.subtitle || "")}</div>
+        </div>`;
+    }).join("");
     document.body.innerHTML = `
       <div class="share-view">
-        <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
-        <h1>${escapeHtml(bundle.name || "Untitled")}</h1>
-        <div class="meta">${doc.frames.length} FRAME${doc.frames.length === 1 ? "" : "S"} · ${totalDur.toFixed(1)}S</div>
-        <button class="btn primary play-cta" id="sharePlayBtn">▶ Play</button>
+        <div class="share-header">
+          <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
+          <h1>${escapeHtml(bundle.name || "Untitled")}</h1>
+          <div class="meta">${doc.frames.length} FRAME${doc.frames.length === 1 ? "" : "S"} · ${totalDur.toFixed(1)}S</div>
+          <button class="btn primary play-cta" id="sharePlayBtn">▶ Play</button>
+        </div>
+        <div class="share-grid">${tiles}</div>
         <div class="footer">Made with <a href="${location.origin}${location.pathname}" target="_blank">storyboard</a></div>
       </div>
       <div class="player" id="player" style="display:none">
@@ -2333,6 +2444,7 @@
           <div class="time" id="timeReadout">0.0s / 0.0s</div>
         </div>
       </div>`;
+    hydrateImages(document);
     // The DOM has been replaced; the IIFE's player references are stale.
     // Reload them by reloading the page logic via a small bootstrap.
     bootShareModePlayer();
