@@ -2466,10 +2466,14 @@
     overlay.innerHTML = `
       <div class="share-view" data-mode="theatre">
         <div class="share-header">
-          <div class="brand"><img src="elmo-fire.gif" alt="elmo" onerror="this.style.display='none'"></div>
-          <h1>${escapeHtml(name || "Untitled")}</h1>
-          <div class="meta">${doc.frames.length} FRAME${doc.frames.length === 1 ? "" : "S"} · ${totalDur.toFixed(1)}S</div>
-          ${closeable ? `<button class="btn" id="overlayClose">× Close</button>` : ""}
+          <div class="brand">
+            <div class="brand-gif"><img src="elmo-fire.gif" alt="" onerror="this.style.display='none'"></div>
+            <span class="brand-title">${escapeHtml(name || "Untitled")}</span>
+          </div>
+          <span class="topbar-spacer"></span>
+          ${closeable
+            ? `<button class="btn" id="overlayClose">× Close</button>`
+            : `<button class="btn" id="overlayDownload" title="Download MP4">↓ Download</button>`}
         </div>
         <div class="share-content">
           <div class="share-grid">${tiles}</div>
@@ -2500,23 +2504,20 @@
     document.body.appendChild(overlay);
     hydrateImages(overlay);
 
+    const controller = bootShareModePlayer();
     const closeFn = () => {
-      try {
-        const sv = document.getElementById("stageVideo");
-        const pa = document.getElementById("playerAudio");
-        const pm = document.getElementById("playerMusic");
-        if (sv) sv.pause();
-        if (pa) pa.pause();
-        if (pm) pm.pause();
-      } catch {}
+      try { controller && controller.stop && controller.stop(); } catch {}
       overlay.remove();
     };
 
     if (closeable) {
       overlay.querySelector("#overlayClose").addEventListener("click", closeFn);
     }
+    const dlBtn = overlay.querySelector("#overlayDownload");
+    if (dlBtn) {
+      dlBtn.addEventListener("click", () => { exportStoryboard(); });
+    }
 
-    bootShareModePlayer();
     return closeFn;
   }
 
@@ -3174,6 +3175,17 @@
       ctrlTime.textContent = `0:00 / ${fmt(totalLength())}`;
       try { await play(); } catch (_) { /* user can press ▶ */ }
     })();
+
+    // Expose a hard-stop so openPlayer's closeFn can really kill playback.
+    return {
+      stop() {
+        st.playing = false;
+        if (st.rafId) cancelAnimationFrame(st.rafId);
+        try { playerAudio.pause(); playerAudio.removeAttribute("src"); } catch {}
+        try { playerMusic.pause(); playerMusic.removeAttribute("src"); } catch {}
+        try { stageVideo.pause(); stageVideo.removeAttribute("src"); } catch {}
+      }
+    };
   }
 
   // --- MP4 export ---
