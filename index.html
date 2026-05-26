@@ -120,9 +120,10 @@
     pointer-events: none; transition: opacity .25s;
   }
   .action-btn:hover::before { opacity: 1; animation: rotate-border 1.8s linear infinite; }
-  .action-btn:hover { background: #2a2a2a; }
-  /* Subtle hover for .btn too — pairs with the rotating glow */
-  .btn:not(.primary):hover { background: #2a2a2a; }
+  .action-btn:not(.primary):hover { background: var(--accent); color: var(--on-accent); }
+  /* On hover, the glowing buttons fill with electric yellow */
+  .btn:not(.primary):hover { background: var(--accent); color: var(--on-accent); }
+  .btn:not(.primary):hover .icon-bolt { color: var(--on-accent); }
   .action-btn.primary {
     background: var(--accent); color: var(--on-accent);
   }
@@ -193,7 +194,8 @@
     pointer-events: none; transition: opacity .25s;
   }
   .doc-trigger:hover::before { opacity: 1; animation: rotate-border 1.8s linear infinite; }
-  .doc-trigger:hover { background: #2a2a2a; }
+  .doc-trigger:hover { background: var(--accent); color: var(--on-accent); }
+  .doc-trigger:hover .chevron { color: var(--on-accent); }
   .doc-trigger .doc-name {
     flex: 1; text-align: left;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -232,9 +234,13 @@
     border-radius: 6px;
     cursor: pointer; font-size: 13px;
     display: inline-flex; align-items: center; justify-content: center;
-    transition: background .15s, color .15s;
+    opacity: 0;
+    transition: background .15s, color .15s, opacity .15s;
   }
+  .doc-item:hover .doc-item-action,
+  .doc-item:focus-within .doc-item-action { opacity: 1; }
   .doc-item .doc-item-action:hover { background: var(--line); color: var(--text); }
+  .doc-item .doc-item-action[data-doc-action="delete"]:hover { background: var(--danger); color: #fff; }
 
   .config {
     display: flex; align-items: center; gap: 6px;
@@ -325,6 +331,11 @@
   .btn.tiny.icon { width: 28px; padding: 0; }
   .btn.danger { color: var(--danger); border-color: transparent; background: transparent; }
   .btn.danger:hover { background: rgba(255,93,93,.08); }
+  .btn.danger-confirm {
+    background: var(--danger); color: #fff; font-weight: 600;
+  }
+  .btn.danger-confirm::before { display: none; }
+  .btn.danger-confirm:hover { background: #ff7878; color: #fff; }
 
   /* Music section (inside side panel) */
   .music { display: flex; flex-direction: column; gap: 8px; }
@@ -529,13 +540,14 @@
     position: absolute; right: 7px; bottom: 7px;
     width: 22px; height: 22px;
     border-radius: 50%;
-    background: var(--accent); color: var(--on-accent);
+    background: var(--panel-2); color: var(--muted);
     border: none; cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
-    transition: background .15s, transform .1s;
+    transition: background .15s, color .15s, transform .1s;
   }
   .gen-inline .icon-bolt { width: 12px; height: 12px; vertical-align: 0; }
-  .gen-inline:hover { background: var(--accent-soft); }
+  .gen-inline.active { background: var(--accent); color: var(--on-accent); }
+  .gen-inline.active:hover { background: var(--accent-soft); }
   .gen-inline:active { transform: scale(0.94); }
   .gen-inline:disabled { opacity: .4; cursor: not-allowed; }
 
@@ -1801,6 +1813,12 @@
       `;
       row.querySelector('[data-k="description"]').value = f.description;
       row.querySelector('[data-k="subtitle"]').value = f.subtitle;
+      // Light up the inline ⚡ button only when the corresponding textarea has content
+      row.querySelectorAll(".textarea-wrap").forEach(wrap => {
+        const ta = wrap.querySelector("textarea");
+        const gen = wrap.querySelector(".gen-inline");
+        if (ta && gen) gen.classList.toggle("active", ta.value.trim().length > 0);
+      });
       framesEl.appendChild(row);
       const canvas = row.querySelector(`[data-wave="${i}"] canvas`);
       drawWaveform(canvas, f.wave);
@@ -1958,6 +1976,12 @@
     } else {
       doc.frames[i][k] = t.value;
       save();
+      // Light up the ⚡ button next to this textarea when there's content
+      if (k === "description" || k === "subtitle") {
+        const wrap = t.closest(".textarea-wrap");
+        const gen = wrap && wrap.querySelector(".gen-inline");
+        if (gen) gen.classList.toggle("active", t.value.trim().length > 0);
+      }
     }
   });
 
@@ -2079,7 +2103,7 @@
     } else if (action === "duplicate") {
       await duplicateDocByName(name);
     } else if (action === "delete") {
-      deleteDocByName(name);
+      await deleteDocByName(name);
     }
   });
 
@@ -2093,10 +2117,15 @@
     save(); renderAll();
   }
 
-  function deleteDocByName(name) {
+  async function deleteDocByName(name) {
     const names = Object.keys(store.docs);
     if (names.length <= 1) { alert("Can't delete your only storyboard."); return; }
-    if (!confirm(`Delete "${name}"? This can't be undone.`)) return;
+    const ok = await confirmModal(
+      `Delete "${name}"?`,
+      `This permanently removes the storyboard and every frame, image, voiceover, and soundtrack inside it. This can't be undone.`,
+      { danger: true, confirmLabel: "Delete" }
+    );
+    if (!ok) return;
     delete store.docs[name];
     if (store.active === name) store.active = Object.keys(store.docs).sort()[0];
     save(); renderAll();
@@ -2440,6 +2469,21 @@
     backdrop.classList.add("show");
   }
   function hideModal() { document.getElementById("modalBackdrop").classList.remove("show"); }
+  function confirmModal(title, message, { danger = false, confirmLabel = "Confirm" } = {}) {
+    return new Promise((resolve) => {
+      showModal(`
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(message)}</p>
+        <div class="actions">
+          <button class="btn" id="modalCancel">Cancel</button>
+          <button class="btn ${danger ? "danger-confirm" : "primary"}" id="modalOk">${escapeHtml(confirmLabel)}</button>
+        </div>`);
+      const done = (v) => { hideModal(); resolve(v); };
+      document.getElementById("modalCancel").addEventListener("click", () => done(false));
+      document.getElementById("modalOk").addEventListener("click", () => done(true));
+      setTimeout(() => document.getElementById("modalCancel").focus(), 10);
+    });
+  }
   function promptModal(title, msg, initial) {
     return new Promise(resolve => {
       showModal(`
