@@ -1020,6 +1020,7 @@
     <div class="section">
       <button class="btn" id="genAllImagesBtn" title="Regenerate images for every frame that has a description"><svg class="icon-bolt" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg> Generate all images</button>
       <button class="btn" id="genAllAudioBtn" title="Regenerate voiceovers for every frame that has a subtitle"><svg class="icon-bolt" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg> Generate all voiceovers</button>
+      <button class="btn" id="downloadAllVoBtn" title="Download every frame's voiceover stitched into one file">↓ Download all voiceovers</button>
     </div>
 
     <div class="section-divider"></div>
@@ -1031,6 +1032,7 @@
         <button class="btn tiny icon" id="musicPrev" title="Previous track">‹</button>
         <span class="music-count" id="musicCount"></span>
         <button class="btn tiny icon" id="musicNext" title="Next track">›</button>
+        <button class="btn tiny icon" id="downloadMusic" title="Download track">↓</button>
         <button class="btn tiny icon" id="clearMusic" title="Delete track">×</button>
       </div>
       <div class="wave-mini" id="musicWave">
@@ -1522,6 +1524,7 @@
     const prevBtn = document.getElementById("musicPrev");
     const nextBtn = document.getElementById("musicNext");
     const clearBtn = document.getElementById("clearMusic");
+    const dlBtn = document.getElementById("downloadMusic");
     if (doc.musicKey) {
       const c = document.createElement("canvas");
       mw.appendChild(c);
@@ -1534,6 +1537,7 @@
       const idx = history.indexOf(doc.musicKey);
       const total = history.length;
       clearBtn.style.display = "";
+      dlBtn.style.display = "";
       if (total > 1) {
         countEl.textContent = `${idx+1}/${total}`;
         prevBtn.style.display = "";
@@ -1565,6 +1569,7 @@
       prevBtn.style.display = "none";
       nextBtn.style.display = "none";
       clearBtn.style.display = "none";
+      dlBtn.style.display = "none";
       audio.removeAttribute("src");
     }
     // Auto-expand if there's no track yet so the prompt input is reachable
@@ -2123,6 +2128,45 @@
     doc.musicKey = history.length > 0 ? history[Math.min(idx, history.length - 1)] : "";
     save(); renderMusic();
   });
+  function triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  function safeName(s) { return String(s || "untitled").replace(/[^\w-]+/g, "_"); }
+
+  document.getElementById("downloadMusic").addEventListener("click", async () => {
+    const doc = activeDoc();
+    if (!doc.musicKey) { alert("No soundtrack to download."); return; }
+    const blob = await idbGet(doc.musicKey);
+    if (!blob) { alert("Soundtrack data missing."); return; }
+    triggerDownload(blob, `${safeName(store.active)}-soundtrack.mp3`);
+  });
+
+  document.getElementById("downloadAllVoBtn").addEventListener("click", async () => {
+    const doc = activeDoc();
+    const parts = [];
+    for (const f of doc.frames) {
+      if (!f.audioKey) continue;
+      const b = await idbGet(f.audioKey);
+      if (b) parts.push(b);
+    }
+    if (parts.length === 0) {
+      alert("No voiceovers yet — generate some first.");
+      return;
+    }
+    // MP3 frames are self-synchronising, so concatenating the blob bytes produces a
+    // single file that nearly all decoders (QuickTime, VLC, ffmpeg, browsers) play
+    // end-to-end. Voice generation always returns audio/mpeg from ElevenLabs.
+    const merged = new Blob(parts, { type: parts[0].type || "audio/mpeg" });
+    triggerDownload(merged, `${safeName(store.active)}-voiceovers.mp3`);
+  });
+
   document.getElementById("musicPrev").addEventListener("click", () => {
     const doc = activeDoc();
     const history = Array.isArray(doc.musicHistory) ? doc.musicHistory : [];
