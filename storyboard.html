@@ -380,6 +380,35 @@
     display: flex; justify-content: flex-end; align-items: center;
     gap: 8px; margin-bottom: 20px;
   }
+  /* Download menu — shared between topbar and share-overlay download buttons */
+  .download-wrap { position: relative; display: inline-flex; }
+  .download-menu {
+    position: absolute;
+    top: calc(100% + 8px); right: 0;
+    min-width: 220px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 6px;
+    z-index: 80;
+    box-shadow: 0 16px 40px rgba(0,0,0,.4);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .download-menu button {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; text-align: left;
+    padding: 10px 14px;
+    background: transparent; border: none;
+    color: var(--text); font-size: 13px;
+    border-radius: 8px; cursor: pointer;
+    height: auto;
+  }
+  .download-menu button:hover { background: var(--panel-2); }
+  .download-menu .dl-icon {
+    width: 18px; flex: 0 0 18px; text-align: center;
+    color: var(--muted); font-size: 13px;
+  }
+
   .floating-actions {
     position: fixed; top: 14px; right: 18px; z-index: 90;
     display: flex; align-items: center; gap: 6px;
@@ -1051,7 +1080,15 @@
     <div class="actions-pill">
       <button class="action-btn primary" id="playBtn" title="Play">▶</button>
       <button class="action-btn" id="shareBtn" title="Share link">↗</button>
-      <button class="action-btn" id="downloadBtn" title="Download">↓</button>
+      <div class="download-wrap">
+        <button class="action-btn" id="downloadBtn" title="Download options">↓</button>
+        <div class="download-menu" id="downloadMenu" style="display:none">
+          <button data-dl="movie"><span class="dl-icon">▶</span> Movie (MP4)</button>
+          <button data-dl="picture"><span class="dl-icon">▦</span> Picture only (no audio)</button>
+          <button data-dl="soundtrack"><span class="dl-icon">♪</span> Soundtrack</button>
+          <button data-dl="voiceover"><span class="dl-icon">⎚</span> Voiceover (stitched)</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -1552,7 +1589,35 @@
   });
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".doc-picker")) closeDocMenu();
+    if (!e.target.closest(".download-wrap")) closeAllDownloadMenus();
   });
+
+  function closeAllDownloadMenus() {
+    document.querySelectorAll(".download-menu").forEach(m => m.style.display = "none");
+  }
+  function bindDownloadMenu(triggerId, menuId) {
+    const trigger = document.getElementById(triggerId);
+    const menu = document.getElementById(menuId);
+    if (!trigger || !menu) return;
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = menu.style.display === "block";
+      closeAllDownloadMenus();
+      menu.style.display = open ? "none" : "block";
+    });
+    menu.addEventListener("click", (e) => {
+      const opt = e.target.closest("[data-dl]");
+      if (!opt) return;
+      closeAllDownloadMenus();
+      runDownloadAction(opt.dataset.dl);
+    });
+  }
+  function runDownloadAction(kind) {
+    if (kind === "movie") exportStoryboard({ audio: true });
+    else if (kind === "picture") exportStoryboard({ audio: false });
+    else if (kind === "soundtrack") downloadSoundtrack();
+    else if (kind === "voiceover") downloadVoStitched();
+  }
 
   function fmtSec(s) {
     if (!isFinite(s) || s < 0) s = 0;
@@ -2193,13 +2258,14 @@
   }
   function safeName(s) { return String(s || "untitled").replace(/[^\w-]+/g, "_"); }
 
-  document.getElementById("downloadMusic").addEventListener("click", async () => {
+  async function downloadSoundtrack() {
     const doc = activeDoc();
     if (!doc.musicKey) { alert("No soundtrack to download."); return; }
     const blob = await idbGet(doc.musicKey);
     if (!blob) { alert("Soundtrack data missing."); return; }
     triggerDownload(blob, `${safeName(store.active)}-soundtrack.mp3`);
-  });
+  }
+  document.getElementById("downloadMusic").addEventListener("click", downloadSoundtrack);
 
   // Encode an AudioBuffer as a 16-bit PCM WAV Blob (RIFF/WAVE header + interleaved samples)
   function audioBufferToWavBlob(buffer) {
@@ -2241,7 +2307,7 @@
     return new Blob([buf], { type: "audio/wav" });
   }
 
-  document.getElementById("downloadAllVoBtn").addEventListener("click", async () => {
+  async function downloadVoStitched() {
     const doc = activeDoc();
     const blobs = [];
     for (const f of doc.frames) {
@@ -2254,7 +2320,7 @@
       return;
     }
     const btn = document.getElementById("downloadAllVoBtn");
-    btn.disabled = true;
+    if (btn) btn.disabled = true;
     const status = showExportStatus("Preparing voiceovers…");
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     try {
@@ -2303,9 +2369,10 @@
       alert("Voiceover stitch failed: " + e.message);
     } finally {
       try { ctx.close(); } catch {}
-      btn.disabled = false;
+      if (btn) btn.disabled = false;
     }
-  });
+  }
+  document.getElementById("downloadAllVoBtn").addEventListener("click", downloadVoStitched);
 
   document.getElementById("musicPrev").addEventListener("click", () => {
     const doc = activeDoc();
@@ -2730,7 +2797,15 @@
           <span class="topbar-spacer"></span>
           ${closeable
             ? `<button class="btn" id="overlayClose">× Close</button>`
-            : `<button class="btn" id="overlayDownload" title="Download MP4">↓ Download</button>`}
+            : `<div class="download-wrap">
+                 <button class="btn" id="overlayDownload" title="Download options">↓ Download</button>
+                 <div class="download-menu" id="overlayDownloadMenu" style="display:none">
+                   <button data-dl="movie"><span class="dl-icon">▶</span> Movie (MP4)</button>
+                   <button data-dl="picture"><span class="dl-icon">▦</span> Picture only (no audio)</button>
+                   <button data-dl="soundtrack"><span class="dl-icon">♪</span> Soundtrack</button>
+                   <button data-dl="voiceover"><span class="dl-icon">⎚</span> Voiceover (stitched)</button>
+                 </div>
+               </div>`}
         </div>
         <div class="share-content">
           <div class="share-grid">${tiles}</div>
@@ -2770,9 +2845,8 @@
     if (closeable) {
       overlay.querySelector("#overlayClose").addEventListener("click", closeFn);
     }
-    const dlBtn = overlay.querySelector("#overlayDownload");
-    if (dlBtn) {
-      dlBtn.addEventListener("click", () => { exportStoryboard(); });
+    if (overlay.querySelector("#overlayDownload")) {
+      bindDownloadMenu("overlayDownload", "overlayDownloadMenu");
     }
 
     return closeFn;
@@ -3533,14 +3607,15 @@
     if (el) el.remove();
   }
 
-  async function exportStoryboard() {
+  async function exportStoryboard(opts = {}) {
+    const includeAudio = opts.audio !== false;
     const doc = activeDoc();
     if (!doc.frames.length) { alert("No frames to export."); return; }
 
     const W = 2560, H = 1440, FPS = 30;
     const btn = document.getElementById("downloadBtn");
-    btn.disabled = true;
-    const status = showExportStatus("Preparing assets…");
+    if (btn) btn.disabled = true;
+    const status = showExportStatus(includeAudio ? "Preparing assets…" : "Preparing picture-only export…");
 
     try {
       const total = doc.frames.length;
@@ -3571,7 +3646,7 @@
           }
         }
         let voiceBuf = null;
-        if (f.audioKey) {
+        if (includeAudio && f.audioKey) {
           const blob = await idbGet(f.audioKey);
           if (blob) {
             try {
@@ -3580,7 +3655,24 @@
             } catch (e) { console.warn("voice decode failed", e); }
           }
         }
-        const duration = voiceBuf ? voiceBuf.duration : (f.duration || 1);
+        // Frame duration: even without audio playback we want timing to match the
+        // film, so use the voiceover's natural duration when available (we still
+        // need to decode JUST to learn the duration when includeAudio is false).
+        let duration;
+        if (voiceBuf) {
+          duration = voiceBuf.duration;
+        } else if (!includeAudio && f.audioKey) {
+          try {
+            const blob = await idbGet(f.audioKey);
+            if (blob) {
+              const ab = await blob.arrayBuffer();
+              const tmp = await decodeCtx.decodeAudioData(ab.slice(0));
+              duration = tmp.duration;
+            } else duration = f.duration || 1;
+          } catch { duration = f.duration || 1; }
+        } else {
+          duration = f.duration || 1;
+        }
         frameAssets.push({
           img, video, voiceBuf, subtitle: f.subtitle, description: f.description,
           duration, idx: i+1, total
@@ -3588,7 +3680,7 @@
       }
 
       let musicBuf = null;
-      if (doc.musicKey) {
+      if (includeAudio && doc.musicKey) {
         updateExportStatus(status, "Loading soundtrack…", 12);
         const blob = await idbGet(doc.musicKey);
         if (blob) {
@@ -3619,7 +3711,7 @@
       const canvasStream = canvas.captureStream(FPS);
       const stream = new MediaStream([
         canvasStream.getVideoTracks()[0],
-        ...dest.stream.getAudioTracks()
+        ...(includeAudio ? dest.stream.getAudioTracks() : [])
       ]);
 
       const candidates = [
@@ -3650,7 +3742,8 @@
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = `${store.active.replace(/[^\w-]+/g, "_")}.${ext}`;
+          const suffix = includeAudio ? "" : "-silent";
+          a.download = `${store.active.replace(/[^\w-]+/g, "_")}${suffix}.${ext}`;
           document.body.appendChild(a); a.click(); a.remove();
           setTimeout(() => URL.revokeObjectURL(url), 2000);
           resolve({ ext });
@@ -3727,10 +3820,11 @@
       alert("Export failed: " + e.message);
       hideExportStatus();
     } finally {
-      btn.disabled = false;
+      if (btn) btn.disabled = false;
     }
   }
-  document.getElementById("downloadBtn").addEventListener("click", exportStoryboard);
+
+  bindDownloadMenu("downloadBtn", "downloadMenu");
 
   // --- Bulk generation ---
   async function generateAllImages() {
