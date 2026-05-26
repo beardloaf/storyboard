@@ -116,13 +116,13 @@
     transition: color .15s;
   }
   .action-btn::before {
-    content: ""; position: absolute; inset: -2px;
+    content: ""; position: absolute; inset: -1px;
     border-radius: inherit;
-    background: conic-gradient(from var(--gradient-angle), transparent 0%, var(--accent) 25%, var(--accent-soft) 35%, transparent 55%, transparent 100%);
-    opacity: 0; z-index: -1; filter: blur(6px);
+    background: conic-gradient(from var(--gradient-angle), transparent 0%, var(--accent) 10%, var(--accent-soft) 15%, transparent 25%, transparent 100%);
+    opacity: 0; z-index: -1; filter: blur(3px);
     pointer-events: none; transition: opacity .25s;
   }
-  .action-btn:hover::before { opacity: 0.9; animation: rotate-border 2.6s linear infinite; }
+  .action-btn:hover::before { opacity: 0.7; animation: rotate-border 2.6s linear infinite; }
   .action-btn.primary {
     background: var(--accent); color: var(--on-accent);
   }
@@ -188,13 +188,13 @@
     transition: border-color .15s;
   }
   .doc-trigger::before {
-    content: ""; position: absolute; inset: -2px;
+    content: ""; position: absolute; inset: -1px;
     border-radius: inherit;
-    background: conic-gradient(from var(--gradient-angle), transparent 0%, var(--accent) 25%, var(--accent-soft) 35%, transparent 55%, transparent 100%);
-    opacity: 0; z-index: -1; filter: blur(6px);
+    background: conic-gradient(from var(--gradient-angle), transparent 0%, var(--accent) 10%, var(--accent-soft) 15%, transparent 25%, transparent 100%);
+    opacity: 0; z-index: -1; filter: blur(3px);
     pointer-events: none; transition: opacity .25s;
   }
-  .doc-trigger:hover::before { opacity: 0.9; animation: rotate-border 2.6s linear infinite; }
+  .doc-trigger:hover::before { opacity: 0.7; animation: rotate-border 2.6s linear infinite; }
   .doc-trigger:hover { border-color: var(--accent-soft); }
   .doc-trigger .doc-name {
     flex: 1; text-align: left;
@@ -288,24 +288,24 @@
   .btn::before {
     content: "";
     position: absolute;
-    inset: -2px;
+    inset: -1px;
     border-radius: inherit;
     background: conic-gradient(
       from var(--gradient-angle),
       transparent 0%,
-      var(--accent) 25%,
-      var(--accent-soft) 35%,
-      transparent 55%,
+      var(--accent) 10%,
+      var(--accent-soft) 15%,
+      transparent 25%,
       transparent 100%
     );
     opacity: 0;
     z-index: -1;
-    filter: blur(6px);
+    filter: blur(3px);
     pointer-events: none;
     transition: opacity .25s;
   }
   .btn:hover::before {
-    opacity: 0.9;
+    opacity: 0.7;
     animation: rotate-border 2.6s linear infinite;
   }
   .btn:hover { border-color: var(--accent-soft); }
