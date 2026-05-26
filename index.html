@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Elmo's Hotstuff</title>
+<title>CRF</title>
 <link rel="icon" type="image/gif" href="elmo-fire.gif">
 <link rel="apple-touch-icon" href="elmo-fire.gif">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #0d0d0d;
@@ -87,16 +87,14 @@
   }
   .topbar-spacer { flex: 1; }
   .brand { display: flex; align-items: center; gap: 12px; }
-  .brand-gif {
-    width: 40px; height: 40px;
-    border-radius: 10px; overflow: hidden;
-    flex: 0 0 auto;
-    background: var(--media-bg);
-  }
-  .brand-gif img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .brand-title {
-    font-size: 16px; font-weight: 600; letter-spacing: -0.2px;
+  .brand-mark {
+    font-family: "Bebas Neue", "Arial Narrow", "Helvetica Neue Condensed", system-ui, sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: 4px;
     color: var(--text);
+    line-height: 1;
+    /* Bebas Neue ships at weight 400 but reads bold by design; this fallback weight is just a hedge */
   }
   /* Floating circular action pill on the right */
   .actions-pill {
@@ -118,11 +116,11 @@
   .action-btn::before {
     content: ""; position: absolute; inset: -1px;
     border-radius: inherit;
-    background: conic-gradient(from var(--gradient-angle), transparent 0%, var(--accent) 10%, var(--accent-soft) 15%, transparent 25%, transparent 100%);
+    background: conic-gradient(from var(--gradient-angle), transparent 0%, var(--accent) 8%, var(--accent-soft) 18%, transparent 32%, transparent 100%);
     opacity: 0; z-index: -1; filter: blur(3px);
     pointer-events: none; transition: opacity .25s;
   }
-  .action-btn:hover::before { opacity: 0.7; animation: rotate-border 2.6s linear infinite; }
+  .action-btn:hover::before { opacity: 1; animation: rotate-border 1.8s linear infinite; }
   .action-btn.primary {
     background: var(--accent); color: var(--on-accent);
   }
@@ -190,11 +188,11 @@
   .doc-trigger::before {
     content: ""; position: absolute; inset: -1px;
     border-radius: inherit;
-    background: conic-gradient(from var(--gradient-angle), transparent 0%, var(--accent) 10%, var(--accent-soft) 15%, transparent 25%, transparent 100%);
+    background: conic-gradient(from var(--gradient-angle), transparent 0%, var(--accent) 8%, var(--accent-soft) 18%, transparent 32%, transparent 100%);
     opacity: 0; z-index: -1; filter: blur(3px);
     pointer-events: none; transition: opacity .25s;
   }
-  .doc-trigger:hover::before { opacity: 0.7; animation: rotate-border 2.6s linear infinite; }
+  .doc-trigger:hover::before { opacity: 1; animation: rotate-border 1.8s linear infinite; }
   .doc-trigger:hover { border-color: var(--accent-soft); }
   .doc-trigger .doc-name {
     flex: 1; text-align: left;
@@ -305,8 +303,8 @@
     transition: opacity .25s;
   }
   .btn:hover::before {
-    opacity: 0.7;
-    animation: rotate-border 2.6s linear infinite;
+    opacity: 1;
+    animation: rotate-border 1.8s linear infinite;
   }
   .btn:hover { border-color: var(--accent-soft); }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
@@ -761,6 +759,9 @@
     flex: 1; margin: 0; font-size: clamp(20px, 2.4vw, 28px);
     font-weight: 600; letter-spacing: -0.3px;
   }
+  .share-storyboard-name {
+    margin: 0; font-size: 15px; font-weight: 500; color: var(--text);
+  }
   .share-header .meta {
     color: var(--muted); font-family: var(--mono); font-size: 11px;
     letter-spacing: 1px; text-transform: uppercase;
@@ -975,15 +976,14 @@
     filter: blur(20px);
   }
   .lock-card > :not(.lock-card-glow) { position: relative; z-index: 1; }
-  .lock-icon {
-    width: 64px; height: 64px;
-    margin: 0 auto 22px;
-    border-radius: 18px;
-    overflow: hidden;
-    box-shadow: 0 8px 28px rgba(var(--accent-rgb), .45);
-    background: var(--media-bg);
+  .lock-mark {
+    font-family: "Bebas Neue", "Arial Narrow", "Helvetica Neue Condensed", system-ui, sans-serif;
+    font-size: 56px; letter-spacing: 6px;
+    color: var(--text);
+    margin: 0 0 16px;
+    line-height: 1;
+    text-shadow: 0 0 32px rgba(var(--accent-rgb), .45);
   }
-  .lock-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .lock-card h2 {
     margin: 0 0 6px;
     font-size: 22px; font-weight: 600; letter-spacing: -0.3px;
@@ -1045,8 +1045,7 @@
 <div class="app">
   <header class="topbar">
     <div class="brand">
-      <div class="brand-gif"><img src="elmo-fire.gif" alt="" onerror="this.style.display='none'"></div>
-      <span class="brand-title">Elmo's Hotstuff</span>
+      <span class="brand-mark">CRF</span>
     </div>
     <span class="topbar-spacer"></span>
     <div class="actions-pill">
@@ -2725,9 +2724,9 @@
       <div class="share-view" data-mode="theatre">
         <div class="share-header">
           <div class="brand">
-            <div class="brand-gif"><img src="elmo-fire.gif" alt="" onerror="this.style.display='none'"></div>
-            <span class="brand-title">${escapeHtml(name || "Untitled")}</span>
+            <span class="brand-mark">CRF</span>
           </div>
+          <h1 class="share-storyboard-name">${escapeHtml(name || "Untitled")}</h1>
           <span class="topbar-spacer"></span>
           ${closeable
             ? `<button class="btn" id="overlayClose">× Close</button>`
@@ -2743,7 +2742,7 @@
             <div class="stage-subtitle" id="stageSubtitle"></div>
           </div>
         </div>
-        ${!closeable ? `<div class="footer">Made with <a href="${location.origin}${location.pathname}" target="_blank">Elmo's Hotstuff</a></div>` : ""}
+        ${!closeable ? `<div class="footer">Made with <a href="${location.origin}${location.pathname}" target="_blank">CRF</a></div>` : ""}
         <audio id="playerAudio"></audio>
         <audio id="playerMusic" loop></audio>
       </div>
@@ -3074,7 +3073,7 @@
           <div class="lock-screen">
             <div class="lock-card">
               <div class="lock-card-glow"></div>
-              <div class="lock-icon"><img src="elmo-fire.gif" alt="" onerror="this.style.display='none'"></div>
+              <div class="lock-mark">CRF</div>
               <h2>This storyboard is locked</h2>
               <p>Enter the password to watch.</p>
               <form id="lockForm">
@@ -3082,7 +3081,7 @@
                 <button type="submit" class="btn primary" id="shareUnlockBtn">Unlock →</button>
               </form>
               <div class="lock-error" id="lockError" style="${errorMsg ? "" : "visibility:hidden"}">${errorMsg ? escapeHtml(errorMsg) : "·"}</div>
-              <div class="lock-footer">Elmo's Hotstuff</div>
+              <div class="lock-footer">CRF</div>
             </div>
           </div>`;
         const input = document.getElementById("shareUnlockPw");
