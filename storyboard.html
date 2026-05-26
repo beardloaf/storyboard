@@ -2203,23 +2203,110 @@
     triggerDownload(blob, `${safeName(store.active)}-soundtrack.mp3`);
   });
 
+  // Encode an AudioBuffer as a 16-bit PCM WAV Blob (RIFF/WAVE header + interleaved samples)
+  function audioBufferToWavBlob(buffer) {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const numSamples = buffer.length;
+    const bytesPerSample = 2; // 16-bit
+    const blockAlign = numChannels * bytesPerSample;
+    const byteRate = sampleRate * blockAlign;
+    const dataSize = numSamples * blockAlign;
+    const buf = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buf);
+    const writeStr = (off, s) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
+    writeStr(0, "RIFF");
+    view.setUint32(4, 36 + dataSize, true);
+    writeStr(8, "WAVE");
+    writeStr(12, "fmt ");
+    view.setUint32(16, 16, true);          // fmt chunk size
+    view.setUint16(20, 1, true);           // PCM
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, 8 * bytesPerSample, true);
+    writeStr(36, "data");
+    view.setUint32(40, dataSize, true);
+    // Interleave channels and clamp to int16
+    const channels = [];
+    for (let c = 0; c < numChannels; c++) channels.push(buffer.getChannelData(c));
+    let offset = 44;
+    for (let i = 0; i < numSamples; i++) {
+      for (let c = 0; c < numChannels; c++) {
+        let s = channels[c][i];
+        if (s > 1) s = 1; else if (s < -1) s = -1;
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        offset += 2;
+      }
+    }
+    return new Blob([buf], { type: "audio/wav" });
+  }
+
   document.getElementById("downloadAllVoBtn").addEventListener("click", async () => {
     const doc = activeDoc();
-    const parts = [];
+    const blobs = [];
     for (const f of doc.frames) {
       if (!f.audioKey) continue;
       const b = await idbGet(f.audioKey);
-      if (b) parts.push(b);
+      if (b) blobs.push(b);
     }
-    if (parts.length === 0) {
+    if (blobs.length === 0) {
       alert("No voiceovers yet — generate some first.");
       return;
     }
-    // MP3 frames are self-synchronising, so concatenating the blob bytes produces a
-    // single file that nearly all decoders (QuickTime, VLC, ffmpeg, browsers) play
-    // end-to-end. Voice generation always returns audio/mpeg from ElevenLabs.
-    const merged = new Blob(parts, { type: parts[0].type || "audio/mpeg" });
-    triggerDownload(merged, `${safeName(store.active)}-voiceovers.mp3`);
+    const btn = document.getElementById("downloadAllVoBtn");
+    btn.disabled = true;
+    const status = showExportStatus("Preparing voiceovers…");
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    try {
+      // Decode each MP3 blob to PCM. ElevenLabs returns MP3 with ID3v2 + Xing
+      // headers; naive byte concat causes most decoders to stop after the first
+      // file's declared duration, so we decode to AudioBuffer and re-encode.
+      const buffers = [];
+      for (let i = 0; i < blobs.length; i++) {
+        updateExportStatus(status, `Decoding voiceover ${i+1} / ${blobs.length}…`, (i / blobs.length) * 80);
+        try {
+          const ab = await blobs[i].arrayBuffer();
+          const decoded = await ctx.decodeAudioData(ab.slice(0));
+          buffers.push(decoded);
+        } catch (e) {
+          console.warn(`Voiceover ${i+1} failed to decode — skipping`, e);
+        }
+      }
+      if (buffers.length === 0) {
+        hideExportStatus();
+        alert("Couldn't decode any of the voiceovers. They may be corrupted.");
+        return;
+      }
+      updateExportStatus(status, "Stitching…", 85);
+      // Concatenate buffers into one. Use the first buffer's sample rate;
+      // ElevenLabs always returns 44.1 kHz so this is consistent in practice.
+      const sampleRate = buffers[0].sampleRate;
+      const numChannels = buffers.reduce((m, b) => Math.max(m, b.numberOfChannels), 1);
+      const totalLength = buffers.reduce((s, b) => s + b.length, 0);
+      const out = ctx.createBuffer(numChannels, totalLength, sampleRate);
+      let writeOffset = 0;
+      for (const b of buffers) {
+        for (let c = 0; c < numChannels; c++) {
+          const src = b.numberOfChannels > c ? b.getChannelData(c) : b.getChannelData(0);
+          out.getChannelData(c).set(src, writeOffset);
+        }
+        writeOffset += b.length;
+      }
+      updateExportStatus(status, "Encoding WAV…", 95);
+      const wav = audioBufferToWavBlob(out);
+      triggerDownload(wav, `${safeName(store.active)}-voiceovers.wav`);
+      updateExportStatus(status, "Done", 100);
+      setTimeout(hideExportStatus, 500);
+    } catch (e) {
+      console.error(e);
+      hideExportStatus();
+      alert("Voiceover stitch failed: " + e.message);
+    } finally {
+      try { ctx.close(); } catch {}
+      btn.disabled = false;
+    }
   });
 
   document.getElementById("musicPrev").addEventListener("click", () => {
